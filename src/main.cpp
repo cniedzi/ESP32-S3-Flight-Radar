@@ -100,7 +100,7 @@ void drawEPWA(LGFX_Sprite& backbuffer)
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(epwa_lat, epwa_lon);
 
-    backbuffer.fillCircle(x, y, 5, 0x141f);
+    backbuffer.drawCircle(x, y, 5, 0x141f);
     backbuffer.setTextColor(0x141f);
     backbuffer.drawString("EPWA", x + 10, y - 10);
 }
@@ -114,7 +114,7 @@ void drawHome(LGFX_Sprite& backbuffer)
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(home_lat, home_lon);
 
-    backbuffer.fillCircle(x, y, 5, 0x141f);
+    backbuffer.drawCircle(x, y, 5, 0x141f);
     backbuffer.setTextColor(0x141f);
     backbuffer.drawString("Home", x + 10, y - 10);
 }

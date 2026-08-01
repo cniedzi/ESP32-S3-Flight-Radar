@@ -163,8 +163,11 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, co
     backbuffer.setTextSize(1);
     backbuffer.setTextColor(lgfx::color565(0, 128, 0));
     backbuffer.drawString(tracked.state.callsign, x + 5, y + 5);
-    backbuffer.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight);
-    backbuffer.drawString(String(height_m) + "m", x + 5, y + 5 + lineHeight * 2);
+    backbuffer.setTextColor(TFT_GRAY);
+    backbuffer.drawString(String(height_m) + "m", x + 5, y + 5 + lineHeight);
+    backbuffer.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight * 2);
+
+
 }
 
 void AircraftManager::DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const
