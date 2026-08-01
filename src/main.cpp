@@ -8,7 +8,6 @@
 #include "HttpRequestManager.h"
 #include "OpenSkyAuthTokenHandler.h"
 #include "AircraftManager.h"
-#include "DrawHelpers.h"
 #include "models/Aircraft.h"
 #include "models/TrackedAircraft.h"
 
@@ -116,6 +115,6 @@ void drawHome(LGFX_Sprite& backbuffer)
 
     backbuffer.drawCircle(x, y, 5, 0x141f);
     backbuffer.setTextColor(0x141f);
-    backbuffer.drawString("Home", x + 10, y - 10);
+    backbuffer.drawString("Dom", x + 10, y - 10);
 }
 
