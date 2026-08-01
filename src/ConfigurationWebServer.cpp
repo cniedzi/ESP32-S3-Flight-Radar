@@ -43,13 +43,13 @@ static const char CONFIG_HTML[] PROGMEM = R"(
                 </div>
 
                 <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                    <span>Radius (in &deg;):</span>
+                    <span>Radius (in miles):</span>
                     <input
                         name="radius"
                         type="number"
                         min="0.000001"
                         step="0.000001"
-                        max="2.499999"
+                        max="200"
                         value='%RADIUS%'
                         class="flex-1 border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
                 </label>

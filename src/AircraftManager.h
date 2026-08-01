@@ -4,7 +4,7 @@
 
 #include "models/TrackedAircraft.h"
 #include "ConfigurationWebServer.h"
-#include "OpenSkyAuthTokenHandler.h"
+#include "HttpRequestManager.h"
 #include "LGFX.h"
 
 class AircraftManager
@@ -22,7 +22,6 @@ private:
     unsigned long lastFetch = 999999;
 
     ConfigurationWebServer& configServer;
-    OpenSkyAuthTokenHandler& authHandler;
     HttpRequestManager& http;
     LGFX& tft;
 
@@ -32,8 +31,8 @@ private:
     void DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
 
 public:
-    AircraftManager(ConfigurationWebServer& config, OpenSkyAuthTokenHandler& auth, HttpRequestManager& httpManager, LGFX& tftGfx)
-        : configServer(config), authHandler(auth), http(httpManager), tft(tftGfx)
+    AircraftManager(ConfigurationWebServer& config, HttpRequestManager& httpManager, LGFX& tftGfx)
+        : configServer(config), http(httpManager), tft(tftGfx)
     {
     }
     ~AircraftManager() = default;
