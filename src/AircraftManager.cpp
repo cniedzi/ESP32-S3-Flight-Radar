@@ -8,13 +8,12 @@ constexpr int SCREEN_SIZE_DIV_2 = (SCREEN_SIZE / 2);
 void AircraftManager::Initialise()
 {
     // Pobranie konfiguracji środka radaru oraz promienia (teraz w milach morskich, np. 100 NM)
-    lat = configServer.GetStoredString("latitude").toDouble();
-    lon = configServer.GetStoredString("longitude").toDouble();
-    rad = configServer.GetStoredString("radius").toDouble();
-
-    // Konfiguracja widoczności elementów UI
-    const String renderText = configServer.GetStoredString("infotext");
-    if (!renderText.isEmpty()) displayInfoText = renderText == "true" ? true : false;
+    lat = configServer.GetStoredDouble("latitude", 0.0);
+    lon = configServer.GetStoredDouble("longitude", 0.0);
+    rad = configServer.GetStoredInt("radius", 60);
+    
+    // Konfiguracja widoczności parametrów samolotów
+    displayInfoText = configServer.GetStoredBool("infotext", true);
 
     fetchInterval = 5000;
 }
@@ -217,5 +216,8 @@ void AircraftManager::DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y
     uint16_t color;
     if (displayInfoText) color = lgfx::color565(128, 0, 0);
     else color = lgfx::color565(255, 0, 0);
+
+    if (tracked.state.baroAltitude > 10000) color = TFT_MAGENTA;
+
     backbuffer.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY, color);
 }

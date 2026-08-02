@@ -2,16 +2,16 @@
 #include <ESPmDNS.h>
 
 // HTML stored in flash
-static const char CONFIG_HTML[] PROGMEM = R"(
+static const char CONFIG_HTML[] = R"rawliteral(
 <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Configure Micro Radar</title>
+        <title>ESP32 Flightradar</title>
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.0"></script>
     </head>
     <body class="font-mono bg-gray-900 text-green-500 min-h-screen p-4 sm:p-0 text-md sm:text-sm">
         <fieldset class="border border-green-500 p-5 w-full max-w-2xl mx-auto sm:m-10">
-            <legend class="px-2">Configure Micro Radar</legend>
+            <legend class="px-2">Configure ESP32 Flightradar</legend>
 
             <form id="cfg" action="/save" method="POST" class="flex flex-col gap-4 sm:gap-2">
 
@@ -85,80 +85,180 @@ static const char CONFIG_HTML[] PROGMEM = R"(
         </script>
     </body>
 </html>
-)";
+)rawliteral";
 
 
+
+// Funkcja pomocnicza zastępująca processor w ESPAsyncWebServer
+void ConfigurationWebServer::psram_replace(char *buffer, size_t max_len, const char *old_str, const char *new_str) {
+    if (buffer == nullptr || old_str == nullptr || new_str == nullptr) return;
+
+    size_t old_len = strlen(old_str);
+    size_t new_len = strlen(new_str);
+
+    if (old_len == 0) return; 
+
+    char *pos = strstr(buffer, old_str);
+    
+    while (pos != nullptr) {
+        size_t current_len = strlen(buffer);
+        size_t tail_len = strlen(pos + old_len);
+
+        // Zabezpieczenie przed spuchnięciem poza bufor
+        if (current_len - old_len + new_len >= max_len - 1) {
+            Serial.println("BLAD: Brak miejsca w PSRAM na rozszerzenie tekstu!");
+            return; 
+        }
+
+        // Sprzętowe przesunięcie reszty tekstu (w lewo lub w prawo)
+        memmove(pos + new_len, pos + old_len, tail_len + 1);
+
+        // Wklejenie nowej wartości
+        memcpy(pos, new_str, new_len);
+
+        // Szukaj dalej, jeśli ten sam tag występuje kilka razy
+        pos = strstr(pos + new_len, old_str);
+    }
+}
 
 
 void ConfigurationWebServer::Initialise() {
     // start mDNS and check result
-    if (!MDNS.begin("microradar")) {
+    if (!MDNS.begin("flightradar")) {
         Serial.println("[WARN] Failed to start mDNS. Continuing without mDNS...");
     }
 
+    prefs.begin("config", false); // Otwieramy raz na starcie w trybie odczyt/zapis
+
     // Handle visit to config web server
     server.on("/", HTTP_GET, [&](AsyncWebServerRequest* request) {
-        Serial.println("[GET] Handling request to config web server...");
+        Serial.println("[GET] Handling request to config web server (PSRAM Chunked)...");
 
-        // read all values up front so the processor lambda can capture by value
-        prefs.begin("config", true);
-        const String latitude = prefs.getString("latitude", "");
-        const String longitude = prefs.getString("longitude", "");
-        const String radius = prefs.getString("radius", "60");
-        const String infoTextEnabled = prefs.getString("infotext", "true");
-        prefs.end();
+        // 1. Odczyt danych z Preferences
+        double _lat = GetStoredDouble("latitude", 0.0);
+        double _lon = GetStoredDouble("longitude", 0.0);
+        int _radius = GetStoredInt("radius", 60);
+        bool infochecked = GetStoredBool("infotext", true);
 
-        AsyncWebServerResponse* response = request->beginResponse(
-            200, "text/html",
-            (const uint8_t*)CONFIG_HTML, sizeof(CONFIG_HTML) - 1,
-            [latitude, longitude, radius, infoTextEnabled]
-            (const String& var) -> String {
-                if (var == "LATITUDE")       return latitude;
-                if (var == "LONGITUDE")      return longitude;
-                if (var == "RADIUS")         return radius;
-                if (var == "INFOTEXT")       return infoTextEnabled == "true" ? "checked" : "";
-                return "";
-            }
-        );
-        request->send(response);
+        // 2. Alokacja pamięci PSRAM
+        // Dodajemy mały zapas na ewentualne wydłużenie stringa po podmianach
+        size_t maxSize = sizeof(CONFIG_HTML) + 512; 
+        char* localPsramBuf = (char*)heap_caps_malloc(maxSize, MALLOC_CAP_SPIRAM);
+        
+        // Zabezpieczenie przed brakiem pamięci PSRAM
+        if (localPsramBuf == nullptr) {
+            request->send(500, "text/plain", "Blad krytyczny: Brak pamieci PSRAM!");
+            return;
         }
-    );
+        
+        // 3. Kopiujemy całą zawartość Flasha (PROGMEM) do bufora w PSRAM
+        strcpy_P(localPsramBuf, CONFIG_HTML);
+
+        // 4. Procesor - podmiana zmiennych
+        char _buf[16] = {0};
+        snprintf(_buf, sizeof(_buf), "%.6f", _lat); psram_replace(localPsramBuf, maxSize, "%LATITUDE%", _buf);
+        snprintf(_buf, sizeof(_buf), "%.6f", _lon); psram_replace(localPsramBuf, maxSize, "%LONGITUDE%", _buf);
+        snprintf(_buf, sizeof(_buf), "%d", _radius); psram_replace(localPsramBuf, maxSize, "%RADIUS%", _buf);
+        psram_replace(localPsramBuf, maxSize, "%INFOTEXT%", infochecked ? "checked" : "");
+
+        // 5. Sprawdzamy finalną długość i wysyłamy asynchronicznie (Chunked)
+        size_t finalLen = strlen(localPsramBuf);
+        
+        PSRAMChunkedResponse *response = new PSRAMChunkedResponse(
+            "text/html",
+            [localPsramBuf, finalLen](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+                if (index >= finalLen) return 0;
+                
+                size_t toSend = (finalLen - index > maxLen) ? maxLen : finalLen - index;
+                memcpy(buffer, localPsramBuf + index, toSend);
+                
+                return toSend;
+            },
+            localPsramBuf // Przekazujemy wskaźnik do zniszczenia przez destruktor
+        );
+        
+        response->addHeader("Connection", "close");
+        request->send(response);
+    });
 
     // Handle save submission to web server
     server.on("/save", HTTP_POST, [&](AsyncWebServerRequest* request) {
         Serial.println("[POST] Handling form submission to config web server...");
 
-        // safe parameter retrieval helper lambda
-        auto TrySaveParam = [request, this](const char* paramName) {
-            const auto* param = request->getParam(paramName, true);
-            if (param == nullptr)
-                return false;
-
-            prefs.putString(paramName, param->value());
-            return true;
-            };
-
-        prefs.begin("config", false);
-
-        TrySaveParam("latitude");
-        TrySaveParam("longitude");
-        TrySaveParam("radius");
-
-        prefs.putString("infotext", request->hasParam("infotext", true) ? "true" : "false");
-        prefs.end();
+        if (request->hasParam("latitude", true)) { double _lat = request->getParam("latitude", true)->value().toDouble(); SaveDouble("latitude", _lat); }
+        if (request->hasParam("longitude", true)) { double _lon = request->getParam("longitude", true)->value().toDouble(); SaveDouble("longitude", _lon); }
+        if (request->hasParam("radius", true)) { int _radius = request->getParam("radius", true)->value().toInt(); SaveInt("radius", _radius); }
+        SaveBool("infotext", request->hasParam("infotext", true));
 
         request->send(200, "text/html", "Saved - restarting device...");
-        ESP.restart();
+        g_restartNeeded = true;
         }
     );
 
     server.begin();
 }
 
-const String ConfigurationWebServer::GetStoredString(const char* key)
+
+
+void ConfigurationWebServer::GetStoredString(const char* key, char* buffer, size_t maxLen, const char* defaultValue)
 {
-    prefs.begin("config", true);
-    const String value = prefs.getString(key, "");
-    prefs.end();
-    return value;
+    // Zabezpieczenie przed błędnym wskaźnikiem
+    if (buffer == nullptr || maxLen == 0) return; 
+    
+    // getString(key, buffer, size) zwraca długość odczytanego tekstu. 
+    // Jeśli zwróci 0, to znaczy, że klucza nie ma w pamięci.
+    size_t len = prefs.getString(key, buffer, maxLen);
+    
+    // Jeśli nie znaleziono klucza, wpisujemy wartość domyślną
+    if (len == 0 && defaultValue != nullptr) {
+        strncpy(buffer, defaultValue, maxLen - 1);
+        buffer[maxLen - 1] = '\0'; // Zabezpieczenie końca stringa (null-terminator)
+    }
+}
+
+
+
+
+double ConfigurationWebServer::GetStoredDouble(const char* key, double defaultValue) {
+    if (key == nullptr) return defaultValue;
+    return prefs.getDouble(key, defaultValue);
+}
+
+
+
+
+int ConfigurationWebServer::GetStoredInt(const char* key, int defaultValue) {
+    if (key == nullptr) return defaultValue;
+    return prefs.getInt(key, defaultValue);
+}
+
+
+
+bool ConfigurationWebServer::GetStoredBool(const char* key, bool defaultValue) {
+    bool result;
+    result = prefs.getBool(key, defaultValue); 
+    return result;
+}
+
+
+
+
+void ConfigurationWebServer::SaveDouble(const char* key, double value) {
+    if (key == nullptr) return;
+    prefs.putDouble(key, value);
+}
+
+
+
+
+void ConfigurationWebServer::SaveInt(const char* key, int value) {
+    if (key == nullptr) return;
+    prefs.putInt(key, value);
+}
+
+
+
+void ConfigurationWebServer::SaveBool(const char* key, bool value) {
+    if (key == nullptr) return;
+    prefs.putBool(key, value);
 }
