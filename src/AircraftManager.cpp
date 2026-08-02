@@ -14,11 +14,8 @@ void AircraftManager::Initialise()
 
     // Konfiguracja widoczności elementów UI
     const String renderText = configServer.GetStoredString("infotext");
-    const String renderTris = configServer.GetStoredString("triangle");
     if (!renderText.isEmpty()) displayInfoText = renderText == "true" ? true : false;
-    if (!renderTris.isEmpty()) displayTriangles = renderTris == "true" ? true : false;
 
-    // ADSB.lol nie ma rychliwych limitów OpenSky. Ustawiamy odświeżanie co 5 sekund (5000 ms).
     fetchInterval = 5000;
 }
 
@@ -82,22 +79,11 @@ void AircraftManager::Draw(LGFX_Sprite& backbuffer)
         auto [predLat, predLon] = tracked.GetDisplayPosition();
         auto [x, y] = ProjectCoordinateToScreen(predLat, predLon);
 
-        static int logCount = 0;
-        if (logCount < 5) {
-        logCount++;
-        }
+        if (x < 0 || x > 480 || y < 80 || y > 400) continue;
 
-        if (x < 0 || x > 480 || y < 80 || y > 400) {
-            continue;
-        }
+        if (displayInfoText) DrawAircraftInfo(backbuffer, x, y, tracked);
 
-        if (displayInfoText)
-            DrawAircraftInfo(backbuffer, x, y, tracked);
-
-        if (displayTriangles)
-            DrawAircraftTriangle(backbuffer, x, y, tracked);
-        else
-            backbuffer.fillCircle(x, y, 3, lgfx::color565(0, 255, 0));
+        DrawAircraftTriangle(backbuffer, x, y, tracked);
     }
 }
 
@@ -228,5 +214,8 @@ void AircraftManager::DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y
     const float rightX = x - dx * TRIANGLE_LENGTH * 0.5f - px * TRIANGLE_WIDTH * 0.5f;
     const float rightY = y - dy * TRIANGLE_LENGTH * 0.5f - py * TRIANGLE_WIDTH * 0.5f;
 
-    backbuffer.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY, lgfx::color565(128, 0, 0));
+    uint16_t color;
+    if (displayInfoText) color = lgfx::color565(128, 0, 0);
+    else color = lgfx::color565(255, 0, 0);
+    backbuffer.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY, color);
 }
