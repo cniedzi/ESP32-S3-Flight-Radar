@@ -29,7 +29,6 @@ WiFiManager wm;
 ConfigurationWebServer configServer;
 HttpRequestManager http;
 
-// Usunięto OpenSkyAuthTokenHandler
 AircraftManager aircraftManager(configServer, http, tft);
 
 void setup()
@@ -80,8 +79,8 @@ void drawEPWA(LGFX_Sprite& backbuffer)
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(epwa_lat, epwa_lon);
 
-    backbuffer.drawCircle(x, y, 5, TFT_CYAN);
-    backbuffer.setTextColor(TFT_CYAN);
+    backbuffer.drawCircle(x, y, 5, 0x141f);
+    backbuffer.setTextColor(0x141f);
     backbuffer.drawString("EPWA", x + 10, y - 10);
 }
 
@@ -92,7 +91,7 @@ void drawHome(LGFX_Sprite& backbuffer)
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(home_lat, home_lon);
 
-    backbuffer.drawCircle(x, y, 5, TFT_CYAN);
-    backbuffer.setTextColor(TFT_CYAN);
+    backbuffer.drawCircle(x, y, 5, 0x141f);
+    backbuffer.setTextColor(0x141f);
     backbuffer.drawString("Home", x + 10, y - 10);
 }

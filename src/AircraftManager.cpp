@@ -116,9 +116,9 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& backbuffer) const
     constexpr int CENTRE = SCREEN_SIZE_DIV_2 - 1;
     constexpr int OUTER = SCREEN_SIZE_DIV_2 - 1;
 
-    backbuffer.drawCircle(CENTRE, CENTRE, OUTER, lgfx::color565(0, 200, 0));
+    backbuffer.drawCircle(CENTRE, CENTRE, OUTER, lgfx::color565(0, 64, 0));
     backbuffer.drawCircle(CENTRE, CENTRE, (OUTER / 3) * 2, lgfx::color565(0, 64, 0));
-    backbuffer.drawCircle(CENTRE, CENTRE, OUTER / 3, lgfx::color565(0, 32, 0));
+    backbuffer.drawCircle(CENTRE, CENTRE, OUTER / 3, lgfx::color565(0, 64, 0));
 }
 
 std::pair<int, int> AircraftManager::ProjectCoordinateToScreen(float predLat, float predLon) const
@@ -165,7 +165,7 @@ void AircraftManager::DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y
     const float py = dx;
 
     constexpr float TRIANGLE_LENGTH = 6.0f;
-    constexpr float TRIANGLE_WIDTH = 3.0f;
+    constexpr float TRIANGLE_WIDTH = 4.0f;
 
     const float tipX = x + dx * TRIANGLE_LENGTH;
     const float tipY = y + dy * TRIANGLE_LENGTH;
@@ -174,5 +174,5 @@ void AircraftManager::DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y
     const float rightX = x - dx * TRIANGLE_LENGTH * 0.5f - px * TRIANGLE_WIDTH * 0.5f;
     const float rightY = y - dy * TRIANGLE_LENGTH * 0.5f - py * TRIANGLE_WIDTH * 0.5f;
 
-    backbuffer.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY, lgfx::color565(0, 255, 0));
+    backbuffer.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY, lgfx::color565(128, 0, 0));
 }
