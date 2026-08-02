@@ -9,19 +9,14 @@
 #include "AircraftManager.h"
 #include "models/Aircraft.h"
 #include "models/TrackedAircraft.h"
+#include "Airports.h"
 
-#define EPWA_LAT 52.165970
-#define EPWA_LON 20.966856
-#define EPMO_LAT 52.451175
-#define EPMO_LON 20.651959
-
-
+#define AIRPORT_COLOR 0x2bf8
 #define HOME_LAT 52.010457
 #define HOME_LON 20.537429
 
-void drawEPWA(LGFX_Sprite& backbuffer);
-void drawEPMO(LGFX_Sprite& backbuffer);
 void drawHome(LGFX_Sprite& backbuffer);
+void drawAirports(LGFX_Sprite& backbuffer);
 
 bool g_restartNeeded = false;
 
@@ -36,6 +31,8 @@ ConfigurationWebServer configServer;
 HttpRequestManager http;
 
 AircraftManager aircraftManager(configServer, http, tft);
+
+
 
 void setup()
 {
@@ -74,9 +71,8 @@ void loop()
   backbuffer.fillScreen(TFT_BLACK);
   aircraftManager.Draw(backbuffer);
 
+  drawAirports(backbuffer);
   drawHome(backbuffer);
-  drawEPWA(backbuffer);
-  drawEPMO(backbuffer);
 
   backbuffer.setCursor(0, 80); backbuffer.setTextColor(TFT_RED); backbuffer.printf("Free heap: %d", ESP.getFreeHeap());
   backbuffer.setCursor(0, 90); backbuffer.setTextColor(TFT_RED); backbuffer.printf("Free PSRAM: %d", ESP.getFreePsram());
@@ -85,29 +81,6 @@ void loop()
   delay(10);
 }
 
-void drawEPWA(LGFX_Sprite& backbuffer)
-{
-    float epwa_lat = EPWA_LAT;
-    float epwa_lon = EPWA_LON;
-
-    auto [x, y] = aircraftManager.ProjectCoordinateToScreen(epwa_lat, epwa_lon);
-
-    backbuffer.fillCircle(x, y, 3, 0x2bf8);
-    backbuffer.setTextColor(TFT_WHITE, 0x2bf8);
-    backbuffer.drawString(" EPWA ", x + 10, y - 10);
-}
-
-void drawEPMO(LGFX_Sprite& backbuffer)
-{
-    float epwa_lat = EPMO_LAT;
-    float epwa_lon = EPMO_LON;
-
-    auto [x, y] = aircraftManager.ProjectCoordinateToScreen(epwa_lat, epwa_lon);
-
-    backbuffer.fillCircle(x, y, 3, 0x2bf8);
-    backbuffer.setTextColor(TFT_WHITE, 0x2bf8);
-    backbuffer.drawString(" EPMO ", x + 10, y - 10);
-}
 
 void drawHome(LGFX_Sprite& backbuffer)
 {
@@ -116,7 +89,31 @@ void drawHome(LGFX_Sprite& backbuffer)
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(home_lat, home_lon);
 
-    backbuffer.fillCircle(x, y, 3, 0x2bf8);
-    backbuffer.setTextColor(TFT_WHITE, 0x2bf8);
+    backbuffer.drawCircle(x, y, 3, 0xdae2);
+    backbuffer.setTextColor(TFT_WHITE, 0xdae2);
     backbuffer.drawString(" Home ", x + 10, y - 10);
+}
+
+
+void drawAirports(LGFX_Sprite& backbuffer) {
+    // Iterujemy po każdym lotnisku w tablicy
+    for (const auto& airport : airportList) {
+        
+        // Przeliczenie współrzędnych z danego lotniska na pozycję (X, Y) na ekranie
+        auto [x, y] = aircraftManager.ProjectCoordinateToScreen(airport.latitude, airport.longitude);
+
+        // Rysowanie kropki (znacznika) lotniska
+        backbuffer.drawCircle(x, y, 3, AIRPORT_COLOR);
+
+        // Ustawienie koloru tekstu (biały) i tła (0x2bf8, żeby ładnie współgrało z kropką)
+        backbuffer.setTextColor(TFT_WHITE, AIRPORT_COLOR);
+
+        // Przygotowanie etykiety ze spacjami na obrzeżach (np. " EPWA ") 
+        // Używamy bufora char zamiast obiektu String dla maksymalnej wydajności RAM!
+        char label[9];
+        snprintf(label, sizeof(label), " %s ", airport.icao);
+
+        // Rysowanie nazwy obok kropki (przesunięcie w prawo i do góry)
+        backbuffer.drawString(label, x + 10, y - 10);
+    }
 }
