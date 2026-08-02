@@ -9,10 +9,9 @@
 struct Aircraft {
     String icao24;          // hex ID samolotu
     String callsign;        // numer rejsu (flight)
-    String originCountry;   // puste (brak w ADSB.lol)
     String type;
-    long   timePosition;    
-    long   lastContact;     
+    long   seen_pos;    
+    long   seen;     
     float  longitude;       // WGS-84 longitude
     float  latitude;        // WGS-84 latitude
     float  baroAltitude;    // wysokość w metrach (przeliczona ze stóp)
@@ -21,7 +20,6 @@ struct Aircraft {
     float  trueTrack;       // kurs (heading)
     float  verticalRate;    
     float  geoAltitude;     
-    String squawk;          
     bool   spi;             
     int    positionSource;  
     int    category;        

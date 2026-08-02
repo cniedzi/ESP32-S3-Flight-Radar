@@ -26,60 +26,46 @@ void AircraftManager::Update()
 {
     unsigned long now = millis();
 
-
-
     // Cykl pobierania danych
     if (now - lastFetch >= fetchInterval) {
         lastFetch = now;
 
         String url = "https://api.adsb.lol/v2/lat/" + String(lat, 4) + "/lon/" + String(lon, 4) + "/dist/" + String((int)rad);
-        Serial.println(url);
 
-        // Zapytanie HTTP bez nagłówków autoryzacji
-        HttpResult result = http.Get(url, {}, {});
-
-        // Jeśli zapytanie się nie powiodło, pomijamy ten cykl
-        if (!result.success) {
-            Serial.print("[WARN] ADSB.lol API request failed: ");
-            Serial.println(result.errorMessage);
-            return;
-        }
-
-        // Parsowanie odpowiedzi JSON (ADSB.lol zwraca obiekt z tablicą "aircraft")
+        // 1. Tworzymy pusty dokument JSON ZANIM wyślemy zapytanie
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, result.response);
-        if (error) {
-            Serial.print("[ERR] JSON deserialization failed: ");
-            Serial.println(error.c_str());
+
+        // 2. Używamy nowej metody GetJson, przekazując na końcu referencję do 'doc'
+        HttpResult result = http.GetJson(url, doc);
+
+        // 3. Sprawdzamy sukces (result.success pilnuje teraz i błędów sieci, i błędów parsowania strumienia)
+        if (!result.success) {
+            Serial.print("[WARN] API/JSON Error: ");
+            Serial.println(result.errorMessage);
             return;
         }
 
         auto aircraft = JsonParser::ParseArray<Aircraft>(doc["ac"]);
 
-        Serial.printf("[DEBUG] Liczba samolotów w tablicy ac: %d\n", aircraft.size());
+        now = millis(); // Aktualizacja znacznika czasu po pomyślnym odebraniu i przetworzeniu danych
 
-        if (!aircraft.empty()) {
-            Serial.printf("[DEBUG] Pierwszy samolot - ICAO/Hex: %s, Lat: %.4f, Lon: %.4f\n", 
-                        aircraft[0].icao24.c_str(), aircraft[0].latitude, aircraft[0].longitude);
-        }
-
-
-
-        now = millis(); // Aktualizacja znacznika czasu po parsowaniu
-
+        // Aktualizacja lub dodawanie nowych samolotów
         for (auto& ac : aircraft) {
             auto it = trackedAircraft.find(ac.icao24);
-            if (it == trackedAircraft.end())
+            if (it == trackedAircraft.end()) {
                 trackedAircraft.emplace(ac.icao24, TrackedAircraft{ ac, now });
-            else
+            }
+            else {
                 it->second.Update(ac, now);
+            }
         }
 
         // Usunięcie samolotów, których już nie ma w nowym strumieniu danych
         for (auto it = trackedAircraft.begin(); it != trackedAircraft.end(); ) {
             bool aircraftPresent = std::any_of(aircraft.begin(), aircraft.end(), [&](const Aircraft& ac) { return ac.icao24 == it->first; });
-            if (!aircraftPresent)
+            if (!aircraftPresent) {
                 it = trackedAircraft.erase(it);
+            }
             else
                 ++it;
         }
@@ -92,10 +78,14 @@ void AircraftManager::Draw(LGFX_Sprite& backbuffer)
 
     for (auto& [icao, tracked] : trackedAircraft) {
         if (tracked.state.onGround) continue;
-
         tracked.Tick();
         auto [predLat, predLon] = tracked.GetDisplayPosition();
         auto [x, y] = ProjectCoordinateToScreen(predLat, predLon);
+
+        static int logCount = 0;
+        if (logCount < 5) {
+        logCount++;
+        }
 
         if (x < 0 || x > 480 || y < 80 || y > 400) {
             continue;
@@ -111,25 +101,89 @@ void AircraftManager::Draw(LGFX_Sprite& backbuffer)
     }
 }
 
+
+
+
 void AircraftManager::DrawRadarCircles(LGFX_Sprite& backbuffer) const
 {
     constexpr int CENTRE = SCREEN_SIZE_DIV_2 - 1;
     constexpr int OUTER = SCREEN_SIZE_DIV_2 - 1;
 
-    backbuffer.drawCircle(CENTRE, CENTRE, OUTER, lgfx::color565(0, 64, 0));
-    backbuffer.drawCircle(CENTRE, CENTRE, (OUTER / 3) * 2, lgfx::color565(0, 64, 0));
-    backbuffer.drawCircle(CENTRE, CENTRE, OUTER / 3, lgfx::color565(0, 64, 0));
+    int r1 = OUTER / 3;
+    int r2 = (2 * OUTER) / 3;
+    int r3 = OUTER;
+
+    // Rysowanie okręgów
+    backbuffer.drawCircle(CENTRE, CENTRE, r3, lgfx::color565(0, 64, 0));
+    backbuffer.drawCircle(CENTRE, CENTRE, r2, lgfx::color565(0, 64, 0));
+    backbuffer.drawCircle(CENTRE, CENTRE, r1, lgfx::color565(0, 64, 0));
+
+    // Konfiguracja stylu tekstu
+    backbuffer.setTextSize(1);
+    backbuffer.setTextColor(lgfx::color565(0, 128, 0), TFT_BLACK);
+    
+    // Ustawienie centrowania tekstu
+    backbuffer.setTextDatum(middle_center); 
+
+    // Obliczenie wartości zasięgu
+    int range1 = static_cast<int>(rad / 3.0f + 0.5f);
+    int range2 = static_cast<int>((rad * 2.0f) / 3.0f + 0.5f);
+    int range3 = static_cast<int>(rad);
+
+    // Kąt w radianach (30 stopni = PI / 6)
+    constexpr float angleRad = PI / 6.0f; 
+    float sinA = sin(angleRad);
+    float cosA = cos(angleRad);
+
+    struct RangeCircle {
+        int radius;
+        int value;
+    };
+    RangeCircle ranges[] = {
+        {r1, range1},
+        {r2, range2},
+        {r3, range3}
+    };
+
+    // Wyświetlenie napisów pod kątem 30 stopni
+    for (const auto& rc : ranges) {
+        int x = CENTRE + static_cast<int>(static_cast<float>(rc.radius) * cosA);
+        int y = CENTRE - static_cast<int>(static_cast<float>(rc.radius) * sinA);
+        
+        // Lekkie odsunięcie na zewnątrz okręgu (np. o 6 pikseli)
+        int labelX = x + static_cast<int>(6.0f * cosA);
+        int labelY = y - static_cast<int>(6.0f * sinA);
+
+        backbuffer.setCursor(labelX, labelY);
+        backbuffer.printf("%dnm", rc.value);
+    }
+    
+    backbuffer.setTextDatum(top_right);
+    backbuffer.setTextColor(TFT_BLACK, 0xdc82);
+    char rangeText[15];
+    snprintf(rangeText, sizeof(rangeText), " Range %dnm ", (int)rad);
+    backbuffer.drawString(rangeText, backbuffer.width(), 80);
+
+    // Reset datum na domyślne
+    backbuffer.setTextDatum(top_left);
 }
+
+
+
 
 std::pair<int, int> AircraftManager::ProjectCoordinateToScreen(float predLat, float predLon) const
 {
     const float dLon = predLon - lon;
     const float dLat = predLat - lat;
 
-    // Przeliczenie promienia z mil morskich (rad) na przybliżone stopnie geograficzne (1 stopień $\approx$ 60 NM)
+    // KLUCZOWO: Korekta długości geograficznej ze względu na szerokość (np. w Polsce ok. 0.61)
+    const float dLonCorrected = dLon * cos(radians(lat));
+
+    // Przeliczenie promienia z mil morskich (NM) na stopnie geograficzne (1 stopień $\approx$ 60 NM)
     const float radDeg = rad / 60.0f;
 
-    const float normLon = (dLon + radDeg) / (2.0f * radDeg);
+    // Używamy dLonCorrected zamiast surowego dLon
+    const float normLon = (dLonCorrected + radDeg) / (2.0f * radDeg);
     const float normLat = (dLat + radDeg) / (2.0f * radDeg);
 
     const int x = static_cast<int>(normLon * SCREEN_SIZE);

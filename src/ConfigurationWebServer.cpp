@@ -49,7 +49,7 @@ static const char CONFIG_HTML[] PROGMEM = R"(
                         type="number"
                         min="0.000001"
                         step="0.000001"
-                        max="200"
+                        max="100"
                         value='%RADIUS%'
                         class="flex-1 border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
                 </label>
@@ -134,7 +134,7 @@ void ConfigurationWebServer::Initialise() {
         prefs.begin("config", true);
         const String latitude = prefs.getString("latitude", "");
         const String longitude = prefs.getString("longitude", "");
-        const String radius = prefs.getString("radius", "1.0");
+        const String radius = prefs.getString("radius", "60");
         const String openskyClientId = prefs.getString("opensky-id", "");
         String openskySecret = prefs.getString("opensky-secret", "");
         const String scanlineEnabled = prefs.getString("scanline", "true");

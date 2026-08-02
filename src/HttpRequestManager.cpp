@@ -1,86 +1,57 @@
 #include "HttpRequestManager.h"
+#include <WiFiClient.h>
+#include <esp_heap_caps.h>
 
-String HttpRequestManager::BuildQueryString(const std::vector<std::pair<String, String>>& params) const
-{
-    if (params.empty())
-        return "";
 
-    String queryStream = "?";
 
-    bool first = true;
-    for (const auto& [key, value] : params)
-    {
-        if (!first)
-            queryStream += "&";
 
-        queryStream += key + "=" + value;
-
-        first = false;
-    }
-
-    return queryStream;
-}
-
-HttpResult HttpRequestManager::Get(const String& url, const std::vector<std::pair<String, String>>& params, const std::vector<std::pair<String, String>>& headers) {
+HttpResult HttpRequestManager::GetJson(const String& url, JsonDocument& jsonDoc) {
     HttpResult result{ false, 0, "", "" };
 
-    const String queryParams = BuildQueryString(params);
-    const String fullUrl = url + queryParams;
+    http.begin(url);
+    http.useHTTP10(true);
+    http.setTimeout(10000);
 
-    http.begin(fullUrl);
-
-    // add headers to request
-    for (const auto& header : headers) {
-        http.addHeader(header.first, header.second);
-    }
-
-    // send request and handle response
     int responseCode = http.GET();
     result.statusCode = responseCode;
 
     if (responseCode > 0) {
-        result.success = true;
-        result.response = http.getString();
+        int len = http.getSize();
+        if (len < 0) len = 100000;
+        
+        char* buffer = (char*)heap_caps_malloc(len + 1, MALLOC_CAP_SPIRAM);
+
+        if (buffer != nullptr) {
+            WiFiClient* client = http.getStreamPtr();
+            int bytesRead = 0;
+            while (http.connected() && (len > 0 || len == -1)) {
+                size_t size = client->available();
+                if (size) {
+                    int c = client->readBytes(buffer + bytesRead, size);
+                    bytesRead += c;
+                    if (len > 0) len -= c;
+                }
+                delay(1);
+            }
+            buffer[bytesRead] = '\0';
+
+            DeserializationError error = deserializeJson(jsonDoc, (const char*)buffer);
+            heap_caps_free(buffer);
+
+            if (error) {
+                result.success = false;
+                result.errorMessage = String("JSON Parse Error: ") + error.c_str();
+            } else {
+                result.success = true;
+            }
+        } else {
+            result.success = false;
+            result.errorMessage = "Out of PSRAM memory during fetch";
+        }
     }
     else {
         result.success = false;
         result.errorMessage = http.errorToString(responseCode);
-        Serial.print("[GET] HTTP Error (");
-        Serial.print(responseCode);
-        Serial.print("): ");
-        Serial.println(result.errorMessage);
-    }
-
-    http.end();
-    return result;
-}
-
-HttpResult HttpRequestManager::Post(const String& url, const String& body, const std::vector<std::pair<String, String>>& headers)
-{
-    HttpResult result{ false, 0, "", "" };
-
-    http.begin(url);
-
-    // add headers to request
-    for (const auto& header : headers) {
-        http.addHeader(header.first, header.second);
-    }
-
-    // send request and handle response
-    int responseCode = http.POST(body);
-    result.statusCode = responseCode;
-
-    if (responseCode > 0) {
-        result.success = true;
-        result.response = http.getString();
-    }
-    else {
-        result.success = false;
-        result.errorMessage = http.errorToString(responseCode);
-        Serial.print("[POST] HTTP Error (");
-        Serial.print(responseCode);
-        Serial.print("): ");
-        Serial.println(result.errorMessage);
     }
 
     http.end();

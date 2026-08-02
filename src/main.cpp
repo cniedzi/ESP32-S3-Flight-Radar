@@ -60,14 +60,15 @@ void setup()
 void loop()
 {
   aircraftManager.Update();
-
   backbuffer.fillScreen(TFT_BLACK);
-
   aircraftManager.Draw(backbuffer);
 
   drawHome(backbuffer);
   drawEPWA(backbuffer);
 
+  backbuffer.setCursor(0, 80); backbuffer.setTextColor(TFT_RED); backbuffer.printf("Free heap: %d", ESP.getFreeHeap());
+  backbuffer.setCursor(0, 90); backbuffer.setTextColor(TFT_RED); backbuffer.printf("Free PSRAM: %d", ESP.getFreePsram());
+  
   backbuffer.pushSprite(0, -80);
   delay(10);
 }
@@ -79,9 +80,9 @@ void drawEPWA(LGFX_Sprite& backbuffer)
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(epwa_lat, epwa_lon);
 
-    backbuffer.drawCircle(x, y, 5, 0x141f);
-    backbuffer.setTextColor(0x141f);
-    backbuffer.drawString("EPWA", x + 10, y - 10);
+    backbuffer.fillCircle(x, y, 3, 0x2bf8);
+    backbuffer.setTextColor(TFT_WHITE, 0x2bf8);
+    backbuffer.drawString(" EPWA ", x + 10, y - 10);
 }
 
 void drawHome(LGFX_Sprite& backbuffer)
@@ -91,7 +92,7 @@ void drawHome(LGFX_Sprite& backbuffer)
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(home_lat, home_lon);
 
-    backbuffer.drawCircle(x, y, 5, 0x141f);
-    backbuffer.setTextColor(0x141f);
-    backbuffer.drawString("Home", x + 10, y - 10);
+    backbuffer.fillCircle(x, y, 3, 0x2bf8);
+    backbuffer.setTextColor(TFT_WHITE, 0x2bf8);
+    backbuffer.drawString(" Home ", x + 10, y - 10);
 }
