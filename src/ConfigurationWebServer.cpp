@@ -7,7 +7,7 @@ static const char CONFIG_HTML[] PROGMEM = R"(
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Configure Micro Radar</title>
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.0"></script>
     </head>
     <body class="font-mono bg-gray-900 text-green-500 min-h-screen p-4 sm:p-0 text-md sm:text-sm">
         <fieldset class="border border-green-500 p-5 w-full max-w-2xl mx-auto sm:m-10">
@@ -48,7 +48,7 @@ static const char CONFIG_HTML[] PROGMEM = R"(
                         type="number"
                         min="1"
                         step="1"
-                        max="200"
+                        max="150"
                         value='%RADIUS%'
                         class="flex-1 border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
                 </label>
@@ -68,9 +68,9 @@ static const char CONFIG_HTML[] PROGMEM = R"(
                     <input
                         type="submit"
                         value="Save"
-                        class="bg-green-500 text-black mt-4 px-4 py-3 text-lg sm:text-base sm:px-2 sm:py-0 self-start cursor-pointer hover:bg-green-400">
+                        class="bg-green-500 text-black mt-4 px-4 py-3 text-lg sm:text-base sm:px-2 sm:py-0 self-start cursor-pointer">
 
-                    <div id="result" class="mt-4 px-1 sm:px-10 text-yellow-400"></div>
+                    <div id="result" class="mt-4 px-1 sm:px-10"></div>
                 </div>
             </form>
         </fieldset>
@@ -80,11 +80,7 @@ static const char CONFIG_HTML[] PROGMEM = R"(
                 e.preventDefault();
                 fetch(this.action, { method: 'POST', body: new FormData(this) })
                     .then(r => r.text())
-                    .then(html => {
-                        const res = document.getElementById('result');
-                        res.innerHTML = html;
-                        setTimeout(() => res.innerHTML = '', 3000);
-                    });
+                    .then(html => document.getElementById('result').innerHTML = html);
             });
         </script>
     </body>
