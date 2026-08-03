@@ -1,9 +1,9 @@
 #include "AircraftManager.h"
+#include <unordered_set>
 
 constexpr int SCREEN_SIZE = 480;
 constexpr int SCREEN_SIZE_DIV_2 = (SCREEN_SIZE / 2);
 
-#include <ArduinoJson.h>
 
 void AircraftManager::Initialise()
 {
@@ -18,6 +18,10 @@ void AircraftManager::Initialise()
     fetchInterval = 5000;
 }
 
+
+
+
+
 void AircraftManager::Update()
 {
     unsigned long now = millis();
@@ -28,25 +32,35 @@ void AircraftManager::Update()
 
         String url = "https://api.adsb.lol/v2/lat/" + String(lat, 4) + "/lon/" + String(lon, 4) + "/dist/" + String((int)rad);
 
-        // 1. Tworzymy pusty dokument JSON ZANIM wyślemy zapytanie
-        JsonDocument doc;
+        // 0. Alokator PSRAM dla dokumentu JSON
+        PsramJsonAllocator psramAllocator;
 
-        // 2. Używamy nowej metody GetJson, przekazując na końcu referencję do 'doc'
+        // 1. Dokument ląduje w całości w PSRAM
+        JsonDocument doc(&psramAllocator);
+
         HttpResult result = http.GetJson(url, doc);
 
-        // 3. Sprawdzamy sukces (result.success pilnuje teraz i błędów sieci, i błędów parsowania strumienia)
         if (!result.success) {
             Serial.print("[WARN] API/JSON Error: ");
             Serial.println(result.errorMessage);
             return;
         }
 
-        auto aircraft = JsonParser::ParseArray<Aircraft>(doc["ac"]);
+        // Zbiór pomocniczy do śledzenia aktywnych ICAO w tej paczce (do usuwania "duchów")
+        std::unordered_set<std::string> fetchedIcaos;
 
-        now = millis(); // Aktualizacja znacznika czasu po pomyślnym odebraniu i przetworzeniu danych
+        // Pobieramy tablicę JSON bezpośrednio z dokumentu
+        JsonArray array = doc["ac"].as<JsonArray>();
 
-        // Aktualizacja lub dodawanie nowych samolotów
-        for (auto& ac : aircraft) {
+        // 2. Bezpośrednia pętla: JSON -> pojedynczy Aircraft -> trackedAircraft
+        for (JsonObject item : array) {
+            // Parsujemy pojedynczy element w locie
+            Aircraft ac = JsonParser::Parse<Aircraft>(item);
+
+            // Jawnie konwertujemy Arduino String na std::string przed wrzuceniem do setu
+            fetchedIcaos.insert(std::string(ac.icao24.c_str()));
+
+            // Od razu aktualizujemy lub dodajemy do głównej bazy
             auto it = trackedAircraft.find(ac.icao24);
             if (it == trackedAircraft.end()) {
                 trackedAircraft.emplace(ac.icao24, TrackedAircraft{ ac, now });
@@ -56,17 +70,28 @@ void AircraftManager::Update()
             }
         }
 
-        // Usunięcie samolotów, których już nie ma w nowym strumieniu danych
+        now = millis(); // Aktualizacja znacznika czasu
+
+        // 3. Usunięcie samolotów, których już nie ma w nowym strumieniu danych
         for (auto it = trackedAircraft.begin(); it != trackedAircraft.end(); ) {
-            bool aircraftPresent = std::any_of(aircraft.begin(), aircraft.end(), [&](const Aircraft& ac) { return ac.icao24 == it->first; });
-            if (!aircraftPresent) {
+            // Konwertujemy klucz z mapy (Arduino String) na std::string do wyszukiwania w secie
+            if (fetchedIcaos.find(std::string(it->first.c_str())) == fetchedIcaos.end()) {
                 it = trackedAircraft.erase(it);
             }
-            else
+            else {
                 ++it;
+            }
         }
     }
 }
+
+
+
+
+
+
+
+
 
 void AircraftManager::Draw(LGFX_Sprite& backbuffer)
 {

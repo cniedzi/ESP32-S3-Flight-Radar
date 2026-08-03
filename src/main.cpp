@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <WiFiManager.h>
 
 #include "LGFX.h"
