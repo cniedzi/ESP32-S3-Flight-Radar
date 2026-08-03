@@ -51,7 +51,7 @@ public:
     void setRad(int newRad) { 
         if (newRad > 0 && newRad <= 250) rad = newRad;
         else if (newRad > 250) rad = 250;
-        else rad = 1;
+        else rad = 10;
     }
 
 };

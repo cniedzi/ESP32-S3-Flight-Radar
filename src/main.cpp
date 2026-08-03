@@ -176,15 +176,16 @@ void readSerialCommands() {
         // Reagujemy w zależności od tego, jaki to znak
         switch (incomingChar) {
             case '=':
+            case '+':
                 //Serial.println("Otrzymano PLUS (+)");
-                aircraftManager.setRad(aircraftManager.getRad() + 1);
+                aircraftManager.setRad(aircraftManager.getRad() + 10);
                 g_lastZoomChange = millis();
                 g_zoomChangeActive = true;
                 break;
                 
             case '-':
                 //Serial.println("Otrzymano MINUS (-)");
-                aircraftManager.setRad(aircraftManager.getRad() - 1);
+                aircraftManager.setRad(aircraftManager.getRad() - 10);
                 g_lastZoomChange = millis();
                 g_zoomChangeActive = true;
                 break;
