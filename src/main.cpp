@@ -9,6 +9,9 @@
 #include "models/Aircraft.h"
 #include "models/TrackedAircraft.h"
 #include "Airports.h"
+#include "PolandMap.h"
+#include "Home.h"
+
 
 #define AIRPORT_COLOR 0x2bf8
 #define HOME_LAT 52.010457
@@ -16,6 +19,7 @@
 
 void drawHome(LGFX_Sprite& backbuffer);
 void drawAirports(LGFX_Sprite& backbuffer);
+void drawPolandMap(LGFX_Sprite& backbuffer, uint16_t color = TFT_DARKGREY);
 
 bool g_restartNeeded = false;
 
@@ -46,6 +50,7 @@ void setup()
 
   backbuffer.setPsram(true);
   backbuffer.setColorDepth(8);
+  backbuffer.setSwapBytes(tft.getSwapBytes());
   backbuffer.createSprite(SCREEN_SIZE, SCREEN_SIZE);
 
   tft.fillScreen(TFT_BLACK);
@@ -54,6 +59,9 @@ void setup()
 
   WiFiManagerHelpers::ConfigureWiFiManager(wm, tft);
   wm.autoConnect(WiFiManagerHelpers::WiFiManagerName);
+
+  tft.fillScreen(TFT_BLACK);
+  tft.drawCentreString("Initializing...", tft.width() / 2, tft.height() / 2);
 
   configServer.Initialise();
   aircraftManager.Initialise();
@@ -70,6 +78,7 @@ void loop()
   backbuffer.fillScreen(TFT_BLACK);
   aircraftManager.Draw(backbuffer);
 
+  drawPolandMap(backbuffer);
   drawAirports(backbuffer);
   drawHome(backbuffer);
 
@@ -85,12 +94,15 @@ void drawHome(LGFX_Sprite& backbuffer)
 {
     float home_lat = HOME_LAT;
     float home_lon = HOME_LON;
+    const uint8_t HOME_WIDTH = 18;
+    const uint8_t HOME_HEIGHT = 15;
 
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(home_lat, home_lon);
 
-    backbuffer.drawCircle(x, y, 3, 0xdae2);
-    backbuffer.setTextColor(TFT_WHITE, 0xdae2);
-    backbuffer.drawString(" Home ", x + 10, y - 10);
+   
+
+    backbuffer.pushImage(x - HOME_WIDTH / 2, y - HOME_HEIGHT / 2 - 1 , HOME_WIDTH, HOME_HEIGHT, HOME, TFT_BLACK);
+
 }
 
 
@@ -114,5 +126,30 @@ void drawAirports(LGFX_Sprite& backbuffer) {
 
         // Rysowanie nazwy obok kropki (przesunięcie w prawo i do góry)
         backbuffer.drawString(label, x + 10, y - 10);
+    }
+}
+
+
+
+
+
+
+// Funkcja rysująca obrys na buforze (sprite) LovyanGFX
+void drawPolandMap(LGFX_Sprite& backbuffer, uint16_t color) {
+    int prevX = -1;
+    int prevY = -1;
+    const int polandPointsCount = sizeof(polandBorder) / sizeof(polandBorder[0]);
+
+    for (int i = 0; i < polandPointsCount; ++i) {
+        // Przeliczenie współrzędnych granicy na piksele za pomocą wbudowanej metody
+        auto [x, y] = aircraftManager.ProjectCoordinateToScreen(polandBorder[i].lat, polandBorder[i].lon);
+
+        if (i > 0) {
+            // Rysowanie odcinka granicy między poprzednim a obecnym punktem
+            backbuffer.drawLine(prevX, prevY, x, y, color);
+        }
+
+        prevX = x;
+        prevY = y;
     }
 }

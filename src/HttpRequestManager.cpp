@@ -5,6 +5,7 @@
 
 
 
+
 HttpResult HttpRequestManager::GetJson(const String& url, JsonDocument& jsonDoc) {
     HttpResult result{ false, 0, "", "" };
 
@@ -24,18 +25,27 @@ HttpResult HttpRequestManager::GetJson(const String& url, JsonDocument& jsonDoc)
         if (buffer != nullptr) {
             WiFiClient* client = http.getStreamPtr();
             int bytesRead = 0;
+            
             while (http.connected() && (len > 0 || len == -1)) {
                 size_t size = client->available();
-                if (size) {
-                    int c = client->readBytes(buffer + bytesRead, size);
-                    bytesRead += c;
-                    if (len > 0) len -= c;
+                if (size > 0) {
+                    size_t toRead = std::min(size, (size_t)1024);
+                    int c = client->readBytes(buffer + bytesRead, toRead);
+                    if (c > 0) {
+                        bytesRead += c;
+                        if (len > 0) len -= c;
+                    }
                 }
-                delay(1);
+                // Kluczowe: yield() wykonuje się w każdym obiegu pętli, zapobiegając uruchomieniu Task Watchdoga przy pobieraniu dużych danych.
+                yield();
             }
             buffer[bytesRead] = '\0';
 
+            // Zabezpieczenie przed zablokowaniem procesora przy parsowaniu JSON-a
+            yield();
             DeserializationError error = deserializeJson(jsonDoc, (const char*)buffer);
+            yield();
+
             heap_caps_free(buffer);
 
             if (error) {

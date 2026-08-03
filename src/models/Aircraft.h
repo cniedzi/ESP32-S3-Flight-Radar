@@ -2,14 +2,12 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <vector>
-
 #include "JsonParser.h"
 
 struct Aircraft {
-    String icao24;          // hex ID samolotu
-    String callsign;        // numer rejsu (flight)
-    String type;
+    char   icao24[8];          // hex ID samolotu
+    char   callsign[10];        // numer rejsu (flight)
+    char   type[8];
     long   seen_pos;    
     long   seen;     
     float  longitude;       // WGS-84 longitude
@@ -18,11 +16,6 @@ struct Aircraft {
     bool   onGround;        // czy na ziemi
     float  velocity;        // prędkość w m/s (przeliczona z węzłów dla fizyki TrackedAircraft)
     float  trueTrack;       // kurs (heading)
-    float  verticalRate;    
-    float  geoAltitude;     
-    bool   spi;             
-    int    positionSource;  
-    int    category;        
 };
 
 namespace JsonParser {

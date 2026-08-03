@@ -13,7 +13,7 @@ private:
     double lat = 0.0;
     double lon = 0.0;
     double rad = 0.2;
-    std::map<String, TrackedAircraft> trackedAircraft;
+    std::map<std::string, TrackedAircraft> trackedAircraft;
 
     bool displayInfoText = true;
     bool displayTriangles = true;
@@ -28,7 +28,7 @@ private:
     void DrawRadarCircles(LGFX_Sprite& backbuffer) const;
     
     void DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
-    void DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
+    void DrawAircraft(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
 
 public:
     AircraftManager(ConfigurationWebServer& config, HttpRequestManager& httpManager, LGFX& tftGfx)

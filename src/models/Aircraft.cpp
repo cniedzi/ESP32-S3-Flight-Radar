@@ -6,9 +6,9 @@ namespace JsonParser {
         Aircraft a;
 
         // Mapowanie kluczy obiektowych z ADSB.lol
-        a.icao24 = state["hex"].isNull() ? "" : state["hex"].as<String>();
-        a.callsign = state["flight"].isNull() ? "" : state["flight"].as<String>();
-        a.type = state["t"].isNull() ? "" : state["t"].as<String>();
+        strlcpy(a.icao24, state["hex"] | "", sizeof(a.icao24));
+        strlcpy(a.callsign, state["flight"] | "", sizeof(a.callsign));
+        strlcpy(a.type, state["t"] | "", sizeof(a.type));
         a.seen_pos = state["seen_pos"].isNull() ? 0 : (long)state["seen_pos"].as<float>();;
         a.seen = state["seen"].isNull() ? 0 : (long)state["seen"].as<float>();
         a.longitude = state["lon"].isNull() ? 0.0f : state["lon"].as<float>();
@@ -31,7 +31,6 @@ namespace JsonParser {
             a.velocity = 0.0f;
         }
         a.trueTrack = state["track"].isNull() ? 0.0f : state["track"].as<float>();
-        a.verticalRate = state["baro_rate"].isNull() ? 0.0f : state["baro_rate"].as<float>();
         return a;
     }
 }

@@ -1,5 +1,7 @@
 #include "AircraftManager.h"
 #include <unordered_set>
+#include "AircraftIcon.h"
+
 
 constexpr int SCREEN_SIZE = 480;
 constexpr int SCREEN_SIZE_DIV_2 = (SCREEN_SIZE / 2);
@@ -53,12 +55,13 @@ void AircraftManager::Update()
         JsonArray array = doc["ac"].as<JsonArray>();
 
         // 2. Bezpośrednia pętla: JSON -> pojedynczy Aircraft -> trackedAircraft
+        int count = 0;
         for (JsonObject item : array) {
             // Parsujemy pojedynczy element w locie
             Aircraft ac = JsonParser::Parse<Aircraft>(item);
 
             // Jawnie konwertujemy Arduino String na std::string przed wrzuceniem do setu
-            fetchedIcaos.insert(std::string(ac.icao24.c_str()));
+            fetchedIcaos.insert(ac.icao24);
 
             // Od razu aktualizujemy lub dodajemy do głównej bazy
             auto it = trackedAircraft.find(ac.icao24);
@@ -68,11 +71,17 @@ void AircraftManager::Update()
             else {
                 it->second.Update(ac, now);
             }
+
+            // Co 15 przetworzonych samolotów dajemy "odetchnąć" systemowi (zapobiega WDT)
+            if (++count % 15 == 0) {
+                yield(); 
+            }
         }
 
         now = millis(); // Aktualizacja znacznika czasu
 
         // 3. Usunięcie samolotów, których już nie ma w nowym strumieniu danych
+        int cleanCount = 0;
         for (auto it = trackedAircraft.begin(); it != trackedAircraft.end(); ) {
             // Konwertujemy klucz z mapy (Arduino String) na std::string do wyszukiwania w secie
             if (fetchedIcaos.find(std::string(it->first.c_str())) == fetchedIcaos.end()) {
@@ -81,7 +90,12 @@ void AircraftManager::Update()
             else {
                 ++it;
             }
+            // Dajemy odetchnąć systemowi co 20 usuniętych/sprawdzonych elementów
+            if (++cleanCount % 20 == 0) {
+                yield();
+            }
         }
+        yield();
     }
 }
 
@@ -107,7 +121,7 @@ void AircraftManager::Draw(LGFX_Sprite& backbuffer)
 
         if (displayInfoText) DrawAircraftInfo(backbuffer, x, y, tracked);
 
-        DrawAircraftTriangle(backbuffer, x, y, tracked);
+        DrawAircraft(backbuffer, x, y, tracked);
     }
 }
 
@@ -221,28 +235,36 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, co
     backbuffer.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight * 3);
 }
 
-void AircraftManager::DrawAircraftTriangle(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const
+
+
+void AircraftManager::DrawAircraft(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const
 {
-    const float dx = std::sin(radians(tracked.state.trueTrack));
-    const float dy = -std::cos(radians(tracked.state.trueTrack));
-    const float px = -dy;
-    const float py = dx;
+    // Zdefiniuj wymiary obrazka samolotu (zaktualizuj jeśli tablica ma inne wymiary)
+    constexpr int32_t IMG_WIDTH = 14;
+    constexpr int32_t IMG_HEIGHT = 14;
 
-    constexpr float TRIANGLE_LENGTH = 6.0f;
-    constexpr float TRIANGLE_WIDTH = 4.0f;
+    // Ustawienie punktu obrotu dokładnie na środku obrazka
+    const float pivotX = IMG_WIDTH / 2.0f;
+    const float pivotY = IMG_HEIGHT / 2.0f;
 
-    const float tipX = x + dx * TRIANGLE_LENGTH;
-    const float tipY = y + dy * TRIANGLE_LENGTH;
-    const float leftX = x - dx * TRIANGLE_LENGTH * 0.5f + px * TRIANGLE_WIDTH * 0.5f;
-    const float leftY = y - dy * TRIANGLE_LENGTH * 0.5f + py * TRIANGLE_WIDTH * 0.5f;
-    const float rightX = x - dx * TRIANGLE_LENGTH * 0.5f - px * TRIANGLE_WIDTH * 0.5f;
-    const float rightY = y - dy * TRIANGLE_LENGTH * 0.5f - py * TRIANGLE_WIDTH * 0.5f;
+    // Pobranie kąta (kierunku lotu) bezpośrednio z danych samolotu
+    float angle = tracked.state.trueTrack;
 
-    uint16_t color;
-    if (displayInfoText) color = lgfx::color565(128, 0, 0);
-    else color = lgfx::color565(255, 0, 0);
+    // Opcjonalnie: Jeśli chciałbyś zachować różne kolory w zależności od wysokości,
+    // musisz użyć odpowiedniej tablicy.
+    const unsigned short* aircraftSprite = AIRCRAFT;
+    if (tracked.state.baroAltitude > 10000) {
+        aircraftSprite = AIRCRAFT_HIGH_ALT;
+    }
 
-    if (tracked.state.baroAltitude > 10000) color = TFT_MAGENTA;
-
-    backbuffer.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY, color);
+    // Rysowanie na buforze
+    backbuffer.pushImageRotateZoom(
+        x, y,                  // Punkt na ekranie, w którym znajdzie się środek obrazka
+        pivotX, pivotY,        // Punkt zakotwiczenia (obrotu) na samym obrazku
+        angle,                 // Kąt obrotu w stopniach
+        1.0f, 1.0f,            // Skala (1.0 = oryginalny rozmiar)
+        IMG_WIDTH, IMG_HEIGHT, // Rozmiary tablicy pikseli
+        aircraftSprite,        // Tablica danych (np. wygenerowana z obrazka)
+        TFT_BLACK              // Przezroczysty kolor tła (czarny nie będzie rysowany)
+    );
 }
