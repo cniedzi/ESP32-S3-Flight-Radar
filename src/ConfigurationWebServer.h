@@ -16,7 +16,6 @@ public:
     ConfigurationWebServer(int port) : server(port) {};
 
     void Initialise();
-    void GetStoredString(const char* key, char* buffer, size_t maxLen, const char* defaultValue = "");
     double GetStoredDouble(const char* key, double defaultValue);
     int GetStoredInt(const char* key, int defaultValue);
     bool GetStoredBool(const char* key, bool defaultValue);

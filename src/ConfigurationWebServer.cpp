@@ -200,24 +200,6 @@ void ConfigurationWebServer::Initialise() {
 
 
 
-void ConfigurationWebServer::GetStoredString(const char* key, char* buffer, size_t maxLen, const char* defaultValue)
-{
-    // Zabezpieczenie przed błędnym wskaźnikiem
-    if (buffer == nullptr || maxLen == 0) return; 
-    
-    // getString(key, buffer, size) zwraca długość odczytanego tekstu. 
-    // Jeśli zwróci 0, to znaczy, że klucza nie ma w pamięci.
-    size_t len = prefs.getString(key, buffer, maxLen);
-    
-    // Jeśli nie znaleziono klucza, wpisujemy wartość domyślną
-    if (len == 0 && defaultValue != nullptr) {
-        strncpy(buffer, defaultValue, maxLen - 1);
-        buffer[maxLen - 1] = '\0'; // Zabezpieczenie końca stringa (null-terminator)
-    }
-}
-
-
-
 
 double ConfigurationWebServer::GetStoredDouble(const char* key, double defaultValue) {
     if (key == nullptr) return defaultValue;
