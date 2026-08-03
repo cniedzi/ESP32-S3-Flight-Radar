@@ -20,8 +20,12 @@
 void drawHome(LGFX_Sprite& backbuffer);
 void drawAirports(LGFX_Sprite& backbuffer);
 void drawPolandMap(LGFX_Sprite& backbuffer, uint16_t color = TFT_DARKGREY);
+void readSerialCommands();
 
 bool g_restartNeeded = false;
+bool g_zoomChangeActive = false;
+unsigned long g_lastZoomChange = 0;
+
 
 constexpr int SCREEN_SIZE = 480;
 constexpr int SCREEN_SIZE_DIV_2 = (SCREEN_SIZE / 2);
@@ -74,7 +78,12 @@ void loop()
     ESP.restart();
   }
   
-  aircraftManager.Update();
+  readSerialCommands();
+
+  if (g_zoomChangeActive && (millis() - g_lastZoomChange >= 1000)) g_zoomChangeActive = false;
+  
+  if (!g_zoomChangeActive) aircraftManager.Update();
+  
   backbuffer.fillScreen(TFT_BLACK);
   aircraftManager.Draw(backbuffer);
 
@@ -151,5 +160,38 @@ void drawPolandMap(LGFX_Sprite& backbuffer, uint16_t color) {
 
         prevX = x;
         prevY = y;
+    }
+}
+
+
+
+
+
+void readSerialCommands() {
+    // Sprawdzamy, czy w buforze Serial są jakieś nieprzeczytane dane
+    while (Serial.available() > 0) {
+        // Odczytujemy pojedynczy znak
+        char incomingChar = Serial.read();
+
+        // Reagujemy w zależności od tego, jaki to znak
+        switch (incomingChar) {
+            case '=':
+                //Serial.println("Otrzymano PLUS (+)");
+                aircraftManager.setRad(aircraftManager.getRad() + 1);
+                g_lastZoomChange = millis();
+                g_zoomChangeActive = true;
+                break;
+                
+            case '-':
+                //Serial.println("Otrzymano MINUS (-)");
+                aircraftManager.setRad(aircraftManager.getRad() - 1);
+                g_lastZoomChange = millis();
+                g_zoomChangeActive = true;
+                break;
+                
+            default:
+                // Ignorujemy wszelkie inne znaki (litery, spacje, entery)
+                break;
+        }
     }
 }

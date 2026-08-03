@@ -12,7 +12,7 @@ class AircraftManager
 private:
     double lat = 0.0;
     double lon = 0.0;
-    double rad = 0.2;
+    int rad = 60;
     std::map<std::string, TrackedAircraft> trackedAircraft;
 
     bool displayInfoText = true;
@@ -41,4 +41,17 @@ public:
     void Update();
     void Draw(LGFX_Sprite& backbuffer);
     std::pair<int, int> ProjectCoordinateToScreen(float predLat, float predLon) const;
+
+    // Funkcja do odczytu zmiennej (Getter)
+    int getRad() const { 
+        return rad; 
+    }
+
+    // Funkcja do zapisu zmiennej (Setter)
+    void setRad(int newRad) { 
+        if (newRad > 0 && newRad <= 250) rad = newRad;
+        else if (newRad > 250) rad = 250;
+        else rad = 1;
+    }
+
 };
