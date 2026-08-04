@@ -6,10 +6,12 @@
 #include "ConfigurationWebServer.h"
 #include "HttpRequestManager.h"
 #include "LGFX.h"
+#include <mutex>
 
 class AircraftManager
 {
 private:
+    std::mutex _dataMutex;
     double lat = 0.0;
     double lon = 0.0;
     int rad = 60;

@@ -32,11 +32,12 @@ void readSerialCommands();
 void commandZoomIn();
 void commandZoomOut();
 void touchTask(void *pvParameters);
+void aircraftsUpdateTask(void *pvParameters);
 
 
 bool g_restartNeeded = false;
-bool g_zoomChangeActive = false;
 unsigned long g_lastZoomChange = 0;
+std::atomic<bool> g_zoomChangeActive{false};
 std::atomic<bool> g_requestZoomIn{false};
 std::atomic<bool> g_requestZoomOut{false};
 
@@ -96,14 +97,25 @@ void setup()
   aircraftManager.Initialise();
 
   xTaskCreatePinnedToCore(
-      touchTask,      // Nazwa naszej funkcji
-      "TouchTask",    // Nazwa systemowa do debugowania
-      2048,           // Pamięć RAM dla zadania (2KB wystarczy z zapasem)
-      NULL,           // Brak parametrów startowych
-      1,              // Priorytet (1 = niski)
-      NULL,           // Uchwyt zadania (nie potrzebujemy)
-      0               // Odpalamy na Rdzeniu 0 (odciążamy główny Rdzeń 1)
+      touchTask,                // Nazwa naszej funkcji
+      "TouchTask",              // Nazwa systemowa do debugowania
+      2048,                     // Pamięć RAM dla zadania (2KB wystarczy z zapasem)
+      NULL,                     // Brak parametrów startowych
+      1,                        // Priorytet (1 = niski)
+      NULL,                     // Uchwyt zadania (nie potrzebujemy)
+      0                         // Odpalamy na Rdzeniu 0 (odciążamy główny Rdzeń 1)
   );
+
+  xTaskCreatePinnedToCore(
+      aircraftsUpdateTask,      // Nazwa funkcji
+      "AircraftsUpdateTask",    // Nazwa systemowa
+      8192,                     // Sieć i JSON zżerają sporo pamięci! Dajmy tu solidne 8KB
+      NULL,
+      1,                        // Niski priorytet
+      NULL,
+      0                         // Odpalamy na Rdzeniu 0 (obok zadania Touch)
+  );
+
 }
 
 
@@ -128,7 +140,6 @@ void loop()
   }
 
   if (g_zoomChangeActive && (millis() - g_lastZoomChange >= 1000)) g_zoomChangeActive = false;
-  if (!g_zoomChangeActive) aircraftManager.Update();
   
   backbuffer.fillScreen(TFT_BLACK);
   drawPolandMap(backbuffer);
@@ -268,5 +279,18 @@ void touchTask(void *pvParameters) {
             }
         }
         vTaskDelay(pdMS_TO_TICKS(20)); 
+    }
+}
+
+
+
+void aircraftsUpdateTask(void *pvParameters) {
+    for(;;) {
+        // Zabezpieczenie przed pobieraniem danych zaraz po kliknięciu Zoom
+        if (!g_zoomChangeActive) {
+            // Wewnątrz Update() samoloty będą już zabezpieczone Mutexem!
+            aircraftManager.Update(); 
+        }
+        vTaskDelay(pdMS_TO_TICKS(10)); 
     }
 }

@@ -54,48 +54,39 @@ void AircraftManager::Update()
         // Pobieramy tablicę JSON bezpośrednio z dokumentu
         JsonArray array = doc["ac"].as<JsonArray>();
 
-        // 2. Bezpośrednia pętla: JSON -> pojedynczy Aircraft -> trackedAircraft
-        int count = 0;
-        for (JsonObject item : array) {
-            // Parsujemy pojedynczy element w locie
-            Aircraft ac = JsonParser::Parse<Aircraft>(item);
+        {
+            std::lock_guard<std::mutex> lock(_dataMutex);
+            // 2. Bezpośrednia pętla: JSON -> pojedynczy Aircraft -> trackedAircraft
+            for (JsonObject item : array) {
+                // Parsujemy pojedynczy element w locie
+                Aircraft ac = JsonParser::Parse<Aircraft>(item);
 
-            // Jawnie konwertujemy Arduino String na std::string przed wrzuceniem do setu
-            fetchedIcaos.insert(ac.icao24);
+                // Jawnie konwertujemy Arduino String na std::string przed wrzuceniem do setu
+                fetchedIcaos.insert(ac.icao24);
 
-            // Od razu aktualizujemy lub dodajemy do głównej bazy
-            auto it = trackedAircraft.find(ac.icao24);
-            if (it == trackedAircraft.end()) {
-                trackedAircraft.emplace(ac.icao24, TrackedAircraft{ ac, now });
+                // Od razu aktualizujemy lub dodajemy do głównej bazy
+                auto it = trackedAircraft.find(ac.icao24);
+                if (it == trackedAircraft.end()) {
+                    trackedAircraft.emplace(ac.icao24, TrackedAircraft{ ac, now });
+                }
+                else {
+                    it->second.Update(ac, now);
+                }
             }
-            else {
-                it->second.Update(ac, now);
-            }
 
-            // Co 15 przetworzonych samolotów dajemy "odetchnąć" systemowi (zapobiega WDT)
-            if (++count % 15 == 0) {
-                yield(); 
+            now = millis(); // Aktualizacja znacznika czasu
+
+            // 3. Usunięcie samolotów, których już nie ma w nowym strumieniu danych
+            for (auto it = trackedAircraft.begin(); it != trackedAircraft.end(); ) {
+                // Konwertujemy klucz z mapy (Arduino String) na std::string do wyszukiwania w secie
+                if (fetchedIcaos.find(std::string(it->first.c_str())) == fetchedIcaos.end()) {
+                    it = trackedAircraft.erase(it);
+                }
+                else {
+                    ++it;
+                }
             }
         }
-
-        now = millis(); // Aktualizacja znacznika czasu
-
-        // 3. Usunięcie samolotów, których już nie ma w nowym strumieniu danych
-        int cleanCount = 0;
-        for (auto it = trackedAircraft.begin(); it != trackedAircraft.end(); ) {
-            // Konwertujemy klucz z mapy (Arduino String) na std::string do wyszukiwania w secie
-            if (fetchedIcaos.find(std::string(it->first.c_str())) == fetchedIcaos.end()) {
-                it = trackedAircraft.erase(it);
-            }
-            else {
-                ++it;
-            }
-            // Dajemy odetchnąć systemowi co 20 usuniętych/sprawdzonych elementów
-            if (++cleanCount % 20 == 0) {
-                yield();
-            }
-        }
-        yield();
     }
 }
 
@@ -109,6 +100,8 @@ void AircraftManager::Update()
 
 void AircraftManager::Draw(LGFX_Sprite& backbuffer)
 {
+    std::lock_guard<std::mutex> lock(_dataMutex);
+
     DrawRadarCircles(backbuffer);
 
     for (auto& [icao, tracked] : trackedAircraft) {
