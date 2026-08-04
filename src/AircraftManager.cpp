@@ -1,10 +1,11 @@
 #include "AircraftManager.h"
 #include <unordered_set>
 #include "AircraftIcon.h"
+#include <WiFi.h>
 
 
-constexpr int SCREEN_SIZE = 480;
-constexpr int SCREEN_SIZE_DIV_2 = (SCREEN_SIZE / 2);
+#define SCREEN_SIZE 480
+#define SCREEN_SIZE_DIV_2 SCREEN_SIZE / 2
 
 
 void AircraftManager::Initialise()
@@ -14,13 +15,15 @@ void AircraftManager::Initialise()
     lon = configServer.GetStoredDouble("longitude", 0.0);
     rad = configServer.GetStoredInt("radius", 60);
     
-    // Konfiguracja widoczności parametrów samolotów
+    // Konfiguracja UI
     displayInfoText = configServer.GetStoredBool("infotext", true);
+    displayRange = configServer.GetStoredBool("disp_range", true);
+    displayAircraftsUpdateIndicator = configServer.GetStoredBool("upd_indic", true);
+    displayMemoryInfo = configServer.GetStoredBool("disp_mem", true);
+    displayRSSI = configServer.GetStoredBool("disp_rssi", true);
 
     fetchInterval = 5000;
 }
-
-
 
 
 
@@ -31,6 +34,7 @@ void AircraftManager::Update()
     // Cykl pobierania danych
     if (now - lastFetch >= fetchInterval) {
         lastFetch = now;
+        isFetching = true;
 
         String url = "https://api.adsb.lol/v2/lat/" + String(lat, 4) + "/lon/" + String(lon, 4) + "/dist/" + String((int)rad);
 
@@ -45,6 +49,7 @@ void AircraftManager::Update()
         if (!result.success) {
             Serial.print("[WARN] API/JSON Error: ");
             Serial.println(result.errorMessage);
+            isFetching = false;
             return;
         }
 
@@ -87,23 +92,16 @@ void AircraftManager::Update()
                 }
             }
         }
+        isFetching = false;
     }
 }
-
-
-
-
-
-
 
 
 
 void AircraftManager::Draw(LGFX_Sprite& backbuffer)
 {
     std::lock_guard<std::mutex> lock(_dataMutex);
-
     DrawRadarCircles(backbuffer);
-
     for (auto& [icao, tracked] : trackedAircraft) {
         if (tracked.state.onGround) continue;
         tracked.Tick();
@@ -115,6 +113,29 @@ void AircraftManager::Draw(LGFX_Sprite& backbuffer)
         if (displayInfoText) DrawAircraftInfo(backbuffer, x, y, tracked);
 
         DrawAircraft(backbuffer, x, y, tracked);
+    }
+    int currentY = 80;
+    const uint8_t lineHeight = backbuffer.fontHeight() + 3;
+    if (displayMemoryInfo) {
+        char buf[15];
+        backbuffer.setCursor(0, currentY); backbuffer.setTextColor(TFT_ORANGE); backbuffer.printf("Free heap: %sB", separatorTysiecy_c(buf, ESP.getFreeHeap())); currentY += lineHeight;
+        backbuffer.setCursor(0, currentY); backbuffer.setTextColor(TFT_ORANGE); backbuffer.printf("Free PSRAM: %sB", separatorTysiecy_c(buf, ESP.getFreePsram())); currentY += lineHeight;
+        
+    }
+    if (displayRSSI) {
+        backbuffer.setCursor(0, currentY);
+        backbuffer.setTextColor(TFT_ORANGE);backbuffer.printf("RSSI: %ddBm", WiFi.RSSI());
+    }
+    if (displayRange) {
+        backbuffer.setTextDatum(top_center);
+        backbuffer.setTextColor(TFT_WHITE, TFT_MAGENTA); //0xa361);
+        char rangeText[15];
+        snprintf(rangeText, sizeof(rangeText), " Range %dnm ", (int)rad);
+        backbuffer.drawString(rangeText, backbuffer.width() / 2, 80);
+        backbuffer.setTextDatum(top_left);
+    }
+    if (displayAircraftsUpdateIndicator) {
+        if (isFetching.load()) backbuffer.fillCircle(SCREEN_SIZE - 6, 86, 5, tft.color565(6, 85, 150));
     }
 }
 
@@ -175,14 +196,6 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& backbuffer) const
         backbuffer.printf("%dnm", rc.value);
     }
     
-    backbuffer.setTextDatum(top_right);
-    backbuffer.setTextColor(TFT_BLACK, 0xdc82);
-    char rangeText[15];
-    snprintf(rangeText, sizeof(rangeText), " Range %dnm ", (int)rad);
-    backbuffer.drawString(rangeText, backbuffer.width(), 80);
-
-    // Reset datum na domyślne
-    backbuffer.setTextDatum(top_left);
 }
 
 
@@ -219,6 +232,7 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, co
     int height_m = (int)(tracked.state.baroAltitude);
 
     backbuffer.setTextSize(1);
+    backbuffer.setTextDatum(top_left);
     backbuffer.setTextColor(lgfx::color565(0, 128, 0));
     backbuffer.drawString(tracked.state.callsign, x + 5, y + 5);
     backbuffer.setTextColor(TFT_CYAN);
@@ -260,4 +274,40 @@ void AircraftManager::DrawAircraft(LGFX_Sprite& backbuffer, int x, int y, const 
         aircraftSprite,        // Tablica danych (np. wygenerowana z obrazka)
         TFT_BLACK              // Przezroczysty kolor tła (czarny nie będzie rysowany)
     );
+}
+
+
+
+void AircraftManager::ForceUpdate() {
+    std::lock_guard<std::mutex> lock(_dataMutex);
+    lastFetch = 0; // Zerujemy timer, dzięki czemu następne wywołanie Update() wykona się natychmiast
+}
+
+
+
+// Separator tysięcy w liczbie - wersja z tablicą znaków
+char* AircraftManager::separatorTysiecy_c(char* bufNum, uint32_t n) {
+  int i = 15;
+  bufNum[i--] = '\0';
+    
+  if (n == 0) {
+    bufNum[0] = '0';
+    bufNum[1] = '\0';
+    return bufNum;
+  }
+
+  uint8_t count = 0;
+  while (n > 0) {
+    if (count == 3) {
+      bufNum[i--] = ' ';
+        count = 0;
+    }
+    bufNum[i--] = (n % 10) + '0';
+    n /= 10;
+    count++;
+  }
+  int startIdx = i + 1;
+  int dlugosc = 15 - startIdx;
+  memmove(bufNum, &bufNum[startIdx], dlugosc + 1);
+  return bufNum;
 }

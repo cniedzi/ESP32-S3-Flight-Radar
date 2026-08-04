@@ -1,24 +1,30 @@
 #pragma once
 
 #include <map>
+#include <mutex>
+#include <atomic>
 
 #include "models/TrackedAircraft.h"
 #include "ConfigurationWebServer.h"
 #include "HttpRequestManager.h"
 #include "LGFX.h"
-#include <mutex>
+
 
 class AircraftManager
 {
 private:
     std::mutex _dataMutex;
+    std::atomic<bool> isFetching{false};
     double lat = 0.0;
     double lon = 0.0;
     int rad = 60;
     std::map<std::string, TrackedAircraft> trackedAircraft;
 
     bool displayInfoText = true;
-    bool displayTriangles = true;
+    bool displayRange = true;
+    bool displayAircraftsUpdateIndicator = true;
+    bool displayMemoryInfo = true;
+    bool displayRSSI = true;
 
     unsigned long fetchInterval = 0;
     unsigned long lastFetch = 999999;
@@ -28,9 +34,9 @@ private:
     LGFX& tft;
 
     void DrawRadarCircles(LGFX_Sprite& backbuffer) const;
-    
     void DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
     void DrawAircraft(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
+    char* separatorTysiecy_c(char* bufNum, uint32_t n);
 
 public:
     AircraftManager(ConfigurationWebServer& config, HttpRequestManager& httpManager, LGFX& tftGfx)
@@ -41,6 +47,7 @@ public:
 
     void Initialise();
     void Update();
+    void ForceUpdate();
     void Draw(LGFX_Sprite& backbuffer);
     std::pair<int, int> ProjectCoordinateToScreen(float predLat, float predLon) const;
 

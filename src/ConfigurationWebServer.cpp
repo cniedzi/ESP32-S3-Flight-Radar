@@ -140,6 +140,8 @@ void ConfigurationWebServer::Initialise() {
         int _radius = GetStoredInt("radius", 60);
         bool infochecked = GetStoredBool("infotext", true);
 
+
+
         // 2. Alokacja pamięci PSRAM
         // Dodajemy mały zapas na ewentualne wydłużenie stringa po podmianach
         size_t maxSize = sizeof(CONFIG_HTML) + 512; 

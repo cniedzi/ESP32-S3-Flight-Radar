@@ -72,8 +72,6 @@ void setup()
   touch_pad_filter_enable();
   touch_pad_fsm_start(); //Uruchomienie ciągłego pomiaru w tle
 
-
-
   tft.init();
   tft.setSwapBytes(true);
   tft.setRotation(1);
@@ -139,22 +137,19 @@ void loop()
       commandZoomOut();
   }
 
-  if (g_zoomChangeActive && (millis() - g_lastZoomChange >= 1000)) g_zoomChangeActive = false;
+  if (g_zoomChangeActive && (millis() - g_lastZoomChange >= 1000)) {
+    g_zoomChangeActive = false;
+    aircraftManager.ForceUpdate();
+  }
   
   backbuffer.fillScreen(TFT_BLACK);
   drawPolandMap(backbuffer);
-
-  aircraftManager.Draw(backbuffer);
-  
   drawAirports(backbuffer);
+  aircraftManager.Draw(backbuffer);
   drawHome(backbuffer);
-
-  backbuffer.setCursor(0, 80); backbuffer.setTextColor(TFT_RED); backbuffer.printf("Free heap: %d", ESP.getFreeHeap());
-  backbuffer.setCursor(0, 90); backbuffer.setTextColor(TFT_RED); backbuffer.printf("Free PSRAM: %d", ESP.getFreePsram());
-  backbuffer.setCursor(0, 100); backbuffer.setTextColor(TFT_RED); backbuffer.printf("RSSI: %d", WiFi.RSSI());
-  
   backbuffer.pushSprite(0, -80);
   delay(10);
+
 }
 
 
