@@ -20,8 +20,6 @@
 #define TOUCH_ZOOM_IN TOUCH_PAD_NUM4
 #define TOUCH_ZOOM_OUT TOUCH_PAD_NUM5
 #define AIRPORT_COLOR 0x2bf8
-#define HOME_LAT 52.010457
-#define HOME_LON 20.537429
 #define SCREEN_SIZE 480
 #define SCREEN_SIZE_DIV_2 SCREEN_SIZE / 2
 #define CONFIG_PORTAL_TIMEOUT 180
@@ -175,11 +173,9 @@ void loop()
 
 void drawHome(LGFX_Sprite& backbuffer)
 {
-    float home_lat = HOME_LAT;
-    float home_lon = HOME_LON;
-    const uint8_t HOME_WIDTH = 18;
+    const uint8_t HOME_WIDTH = 18;  
     const uint8_t HOME_HEIGHT = 15;
-    auto [x, y] = aircraftManager.ProjectCoordinateToScreen(home_lat, home_lon);
+    auto [x, y] = aircraftManager.ProjectCoordinateToScreen(settingsManager.GetLatitude(), settingsManager.GetLongitude());
     backbuffer.pushImage(x - HOME_WIDTH / 2, y - HOME_HEIGHT / 2 - 1 , HOME_WIDTH, HOME_HEIGHT, HOME, TFT_BLACK);
 }
 
