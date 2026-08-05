@@ -1,28 +1,16 @@
 #include "AircraftManager.h"
-#include <unordered_set>
 #include "AircraftIcon.h"
+#include <unordered_set>
 #include <WiFi.h>
 
 
 #define SCREEN_SIZE 480
 #define SCREEN_SIZE_DIV_2 SCREEN_SIZE / 2
+#define FETCH_INTERVAL 5000 //ms
 
 
 void AircraftManager::Initialise()
 {
-    // Pobranie konfiguracji środka radaru oraz promienia (teraz w milach morskich, np. 100 NM)
-    lat = configServer.GetStoredDouble("latitude", 0.0);
-    lon = configServer.GetStoredDouble("longitude", 0.0);
-    rad = configServer.GetStoredInt("radius", 60);
-    
-    // Konfiguracja UI
-    displayInfoText = configServer.GetStoredBool("infotext", true);
-    displayRange = configServer.GetStoredBool("disp_range", true);
-    displayAircraftsUpdateIndicator = configServer.GetStoredBool("upd_indic", true);
-    displayMemoryInfo = configServer.GetStoredBool("disp_mem", true);
-    displayRSSI = configServer.GetStoredBool("disp_rssi", true);
-
-    fetchInterval = 5000;
 }
 
 
@@ -32,11 +20,11 @@ void AircraftManager::Update()
     unsigned long now = millis();
 
     // Cykl pobierania danych
-    if (now - lastFetch >= fetchInterval) {
-        lastFetch = now;
+    if (now - lastFetch >= FETCH_INTERVAL) {
+        
         isFetching = true;
 
-        String url = "https://api.adsb.lol/v2/lat/" + String(lat, 4) + "/lon/" + String(lon, 4) + "/dist/" + String((int)rad);
+        String url = "https://api.adsb.lol/v2/lat/" + String(settings.GetLatitude(), 4) + "/lon/" + String(settings.GetLongitude(), 4) + "/dist/" + String(settings.GetRadius());
 
         // 0. Alokator PSRAM dla dokumentu JSON
         PsramJsonAllocator psramAllocator;
@@ -92,6 +80,7 @@ void AircraftManager::Update()
                 }
             }
         }
+        lastFetch = now;
         isFetching = false;
     }
 }
@@ -101,6 +90,7 @@ void AircraftManager::Update()
 void AircraftManager::Draw(LGFX_Sprite& backbuffer)
 {
     std::lock_guard<std::mutex> lock(_dataMutex);
+   
     DrawRadarCircles(backbuffer);
     for (auto& [icao, tracked] : trackedAircraft) {
         if (tracked.state.onGround) continue;
@@ -110,35 +100,36 @@ void AircraftManager::Draw(LGFX_Sprite& backbuffer)
 
         if (x < 0 || x > 480 || y < 80 || y > 400) continue;
 
-        if (displayInfoText) DrawAircraftInfo(backbuffer, x, y, tracked);
+        if (settings.GetInfoTextVisible()) DrawAircraftInfo(backbuffer, x, y, tracked);
 
         DrawAircraft(backbuffer, x, y, tracked);
     }
     int currentY = 80;
     const uint8_t lineHeight = backbuffer.fontHeight() + 3;
-    if (displayMemoryInfo) {
+    if (settings.GetDisplayMemoryInfo()) {
         char buf[15];
+        backbuffer.setTextDatum(top_left);
         backbuffer.setCursor(0, currentY); backbuffer.setTextColor(TFT_ORANGE); backbuffer.printf("Free heap: %sB", separatorTysiecy_c(buf, ESP.getFreeHeap())); currentY += lineHeight;
         backbuffer.setCursor(0, currentY); backbuffer.setTextColor(TFT_ORANGE); backbuffer.printf("Free PSRAM: %sB", separatorTysiecy_c(buf, ESP.getFreePsram())); currentY += lineHeight;
         
     }
-    if (displayRSSI) {
+    if (settings.GetDisplayRSSI()) {
+        backbuffer.setTextDatum(top_left);
         backbuffer.setCursor(0, currentY);
         backbuffer.setTextColor(TFT_ORANGE);backbuffer.printf("RSSI: %ddBm", WiFi.RSSI());
     }
-    if (displayRange) {
+    if (settings.GetDisplayRange()) {
         backbuffer.setTextDatum(top_center);
         backbuffer.setTextColor(TFT_WHITE, TFT_MAGENTA); //0xa361);
         char rangeText[15];
-        snprintf(rangeText, sizeof(rangeText), " Range %dnm ", (int)rad);
+        snprintf(rangeText, sizeof(rangeText), " Range %dnm ", settings.GetRadius());
         backbuffer.drawString(rangeText, backbuffer.width() / 2, 80);
         backbuffer.setTextDatum(top_left);
     }
-    if (displayAircraftsUpdateIndicator) {
+    if (settings.GetDisplayAircraftsUpdateIndicator()) {
         if (isFetching.load()) backbuffer.fillCircle(SCREEN_SIZE - 6, 86, 5, tft.color565(6, 85, 150));
     }
 }
-
 
 
 
@@ -164,9 +155,9 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& backbuffer) const
     backbuffer.setTextDatum(middle_center); 
 
     // Obliczenie wartości zasięgu
-    int range1 = static_cast<int>(rad / 3.0f + 0.5f);
-    int range2 = static_cast<int>((rad * 2.0f) / 3.0f + 0.5f);
-    int range3 = static_cast<int>(rad);
+    int range1 = static_cast<int>(settings.GetRadius() / 3.0f + 0.5f);
+    int range2 = static_cast<int>((settings.GetRadius() * 2.0f) / 3.0f + 0.5f);
+    int range3 = static_cast<int>(settings.GetRadius());
 
     // Kąt w radianach (30 stopni = PI / 6)
     constexpr float angleRad = PI / 6.0f; 
@@ -203,14 +194,14 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& backbuffer) const
 
 std::pair<int, int> AircraftManager::ProjectCoordinateToScreen(float predLat, float predLon) const
 {
-    const float dLon = predLon - lon;
-    const float dLat = predLat - lat;
+    const float dLon = predLon - settings.GetLongitude();
+    const float dLat = predLat - settings.GetLatitude();
 
     // KLUCZOWO: Korekta długości geograficznej ze względu na szerokość (np. w Polsce ok. 0.61)
-    const float dLonCorrected = dLon * cos(radians(lat));
+    const float dLonCorrected = dLon * cos(radians(settings.GetLatitude()));
 
     // Przeliczenie promienia z mil morskich (NM) na stopnie geograficzne (1 stopień $\approx$ 60 NM)
-    const float radDeg = rad / 60.0f;
+    const float radDeg = settings.GetRadius() / 60.0f;
 
     // Używamy dLonCorrected zamiast surowego dLon
     const float normLon = (dLonCorrected + radDeg) / (2.0f * radDeg);
@@ -310,4 +301,13 @@ char* AircraftManager::separatorTysiecy_c(char* bufNum, uint32_t n) {
   int dlugosc = 15 - startIdx;
   memmove(bufNum, &bufNum[startIdx], dlugosc + 1);
   return bufNum;
+}
+
+
+
+// Funkcja do zapisu zmiennej (Setter)
+void AircraftManager::setRad(int newRad) { 
+  if (newRad > 0 && newRad <= 250) settings.SetRadius(newRad);
+  else if (newRad > 250) settings.SetRadius(250);
+  else settings.SetRadius(10);
 }

@@ -7,7 +7,7 @@ static const char CONFIG_HTML[] = R"rawliteral(
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>ESP32 Flightradar</title>
-        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.0"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     </head>
     <body class="font-mono bg-gray-900 text-green-500 min-h-screen p-4 sm:p-0 text-md sm:text-sm">
         <fieldset class="border border-green-500 p-5 w-full max-w-2xl mx-auto sm:m-10">
@@ -46,31 +46,48 @@ static const char CONFIG_HTML[] = R"rawliteral(
                     <input
                         name="radius"
                         type="number"
-                        min="1"
-                        step="1"
+                        min="10"
+                        step="10"
                         max="250"
                         value='%RADIUS%'
                         class="flex-1 border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
                 </label>
 
-                <div class="flex flex-col sm:flex-row gap-4 pt-4">
-                    <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                        <span>Aircraft Info:</span>
-                        <input
-                            name="infotext"
-                            type="checkbox"
-                            %INFOTEXT%
-                            class="px-3 sm:px-1 accent-green-500">
+                <!-- UI Options Checkboxes -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t border-green-800">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input name="infotext" type="checkbox" %INFOTEXT% class="w-4 h-4 accent-green-500">
+                        <span>Show aircrafts information</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input name="meminfo" type="checkbox" %MEMINFO% class="w-4 h-4 accent-green-500">
+                        <span>Show memory information</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input name="rssiinfo" type="checkbox" %RSSIINFO% class="w-4 h-4 accent-green-500">
+                        <span>Show Wifi RSSI</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input name="rangeinfo" type="checkbox" %RANGEINFO% class="w-4 h-4 accent-green-500">
+                        <span>Show range</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input name="updateinfo" type="checkbox" %UPDATEINFO% class="w-4 h-4 accent-green-500">
+                        <span>Show aircrafts update indicator</span>
                     </label>
                 </div>
 
-                <div class="flex flex-col sm:flex-row gap-4 sm:gap-5">
+                <div class="flex flex-col sm:flex-row gap-4 sm:gap-5 pt-2">
                     <input
                         type="submit"
                         value="Save"
-                        class="bg-green-500 text-black mt-4 px-4 py-3 text-lg sm:text-base sm:px-2 sm:py-0 self-start cursor-pointer">
+                        class="bg-green-500 text-black mt-4 px-4 py-3 text-lg sm:text-base sm:px-2 sm:py-0 self-start cursor-pointer font-bold hover:bg-green-400">
 
-                    <div id="result" class="mt-4 px-1 sm:px-10"></div>
+                    <div id="result" class="mt-4 px-1 sm:px-10 font-bold text-yellow-400"></div>
                 </div>
             </form>
         </fieldset>
@@ -128,23 +145,13 @@ void ConfigurationWebServer::Initialise() {
         Serial.println("[WARN] Failed to start mDNS. Continuing without mDNS...");
     }
 
-    prefs.begin("config", false); // Otwieramy raz na starcie w trybie odczyt/zapis
-
     // Handle visit to config web server
     server.on("/", HTTP_GET, [&](AsyncWebServerRequest* request) {
         Serial.println("[GET] Handling request to config web server (PSRAM Chunked)...");
 
-        // 1. Odczyt danych z Preferences
-        double _lat = GetStoredDouble("latitude", 0.0);
-        double _lon = GetStoredDouble("longitude", 0.0);
-        int _radius = GetStoredInt("radius", 60);
-        bool infochecked = GetStoredBool("infotext", true);
-
-
-
-        // 2. Alokacja pamięci PSRAM
+        // Alokacja pamięci PSRAM
         // Dodajemy mały zapas na ewentualne wydłużenie stringa po podmianach
-        size_t maxSize = sizeof(CONFIG_HTML) + 512; 
+        size_t maxSize = sizeof(CONFIG_HTML) + 1024; 
         char* localPsramBuf = (char*)heap_caps_malloc(maxSize, MALLOC_CAP_SPIRAM);
         
         // Zabezpieczenie przed brakiem pamięci PSRAM
@@ -153,17 +160,21 @@ void ConfigurationWebServer::Initialise() {
             return;
         }
         
-        // 3. Kopiujemy całą zawartość Flasha (PROGMEM) do bufora w PSRAM
+        // Kopiujemy całą zawartość Flasha (PROGMEM) do bufora w PSRAM
         strcpy_P(localPsramBuf, CONFIG_HTML);
 
-        // 4. Procesor - podmiana zmiennych
+        // Procesor - podmiana zmiennych
         char _buf[16] = {0};
-        snprintf(_buf, sizeof(_buf), "%.6f", _lat); psram_replace(localPsramBuf, maxSize, "%LATITUDE%", _buf);
-        snprintf(_buf, sizeof(_buf), "%.6f", _lon); psram_replace(localPsramBuf, maxSize, "%LONGITUDE%", _buf);
-        snprintf(_buf, sizeof(_buf), "%d", _radius); psram_replace(localPsramBuf, maxSize, "%RADIUS%", _buf);
-        psram_replace(localPsramBuf, maxSize, "%INFOTEXT%", infochecked ? "checked" : "");
+        snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLatitude()); psram_replace(localPsramBuf, maxSize, "%LATITUDE%", _buf);
+        snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLongitude()); psram_replace(localPsramBuf, maxSize, "%LONGITUDE%", _buf);
+        snprintf(_buf, sizeof(_buf), "%d", settings.GetRadius()); psram_replace(localPsramBuf, maxSize, "%RADIUS%", _buf);
+        psram_replace(localPsramBuf, maxSize, "%INFOTEXT%",   settings.GetInfoTextVisible() ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%MEMINFO%",    settings.GetDisplayMemoryInfo() ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%RSSIINFO%",   settings.GetDisplayRSSI() ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%RANGEINFO%",  settings.GetDisplayRange() ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%UPDATEINFO%", settings.GetDisplayAircraftsUpdateIndicator() ? "checked" : "");
 
-        // 5. Sprawdzamy finalną długość i wysyłamy asynchronicznie (Chunked)
+        // Sprawdzamy finalną długość i wysyłamy asynchronicznie (Chunked)
         size_t finalLen = strlen(localPsramBuf);
         
         PSRAMChunkedResponse *response = new PSRAMChunkedResponse(
@@ -187,62 +198,17 @@ void ConfigurationWebServer::Initialise() {
     server.on("/save", HTTP_POST, [&](AsyncWebServerRequest* request) {
         Serial.println("[POST] Handling form submission to config web server...");
 
-        if (request->hasParam("latitude", true)) { double _lat = request->getParam("latitude", true)->value().toDouble(); SaveDouble("latitude", _lat); }
-        if (request->hasParam("longitude", true)) { double _lon = request->getParam("longitude", true)->value().toDouble(); SaveDouble("longitude", _lon); }
-        if (request->hasParam("radius", true)) { int _radius = request->getParam("radius", true)->value().toInt(); SaveInt("radius", _radius); }
-        SaveBool("infotext", request->hasParam("infotext", true));
+        if (request->hasParam("latitude", true)) { settings.SetLatitude(request->getParam("latitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
+        if (request->hasParam("longitude", true)) { settings.SetLongitude(request->getParam("longitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
+        if (request->hasParam("radius", true)) { settings.SetRadius(request->getParam("radius", true)->value().toInt()); aircraftmanager.ForceUpdate(); }
+        settings.SetInfoTextVisible(request->hasParam("infotext", true));
+        settings.SetDisplayMemoryInfo(request->hasParam("meminfo", true));
+        settings.SetDisplayRSSI(request->hasParam("rssiinfo", true));
+        settings.SetDisplayRange(request->hasParam("rangeinfo", true));
+        settings.SetDisplayAircraftsUpdateIndicator(request->hasParam("updateinfo", true));
 
-        request->send(200, "text/html", "Saved - restarting device...");
-        g_restartNeeded = true;
-        }
-    );
+        request->send(200, "text/html", "");
+    });
 
     server.begin();
-}
-
-
-
-
-double ConfigurationWebServer::GetStoredDouble(const char* key, double defaultValue) {
-    if (key == nullptr) return defaultValue;
-    return prefs.getDouble(key, defaultValue);
-}
-
-
-
-
-int ConfigurationWebServer::GetStoredInt(const char* key, int defaultValue) {
-    if (key == nullptr) return defaultValue;
-    return prefs.getInt(key, defaultValue);
-}
-
-
-
-bool ConfigurationWebServer::GetStoredBool(const char* key, bool defaultValue) {
-    bool result;
-    result = prefs.getBool(key, defaultValue); 
-    return result;
-}
-
-
-
-
-void ConfigurationWebServer::SaveDouble(const char* key, double value) {
-    if (key == nullptr) return;
-    prefs.putDouble(key, value);
-}
-
-
-
-
-void ConfigurationWebServer::SaveInt(const char* key, int value) {
-    if (key == nullptr) return;
-    prefs.putInt(key, value);
-}
-
-
-
-void ConfigurationWebServer::SaveBool(const char* key, bool value) {
-    if (key == nullptr) return;
-    prefs.putBool(key, value);
 }

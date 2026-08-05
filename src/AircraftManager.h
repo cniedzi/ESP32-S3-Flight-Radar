@@ -5,7 +5,7 @@
 #include <atomic>
 
 #include "models/TrackedAircraft.h"
-#include "ConfigurationWebServer.h"
+#include "SettingsManager.h"
 #include "HttpRequestManager.h"
 #include "LGFX.h"
 
@@ -15,9 +15,6 @@ class AircraftManager
 private:
     std::mutex _dataMutex;
     std::atomic<bool> isFetching{false};
-    double lat = 0.0;
-    double lon = 0.0;
-    int rad = 60;
     std::map<std::string, TrackedAircraft> trackedAircraft;
 
     bool displayInfoText = true;
@@ -29,7 +26,7 @@ private:
     unsigned long fetchInterval = 0;
     unsigned long lastFetch = 999999;
 
-    ConfigurationWebServer& configServer;
+    SettingsManager& settings;
     HttpRequestManager& http;
     LGFX& tft;
 
@@ -39,8 +36,8 @@ private:
     char* separatorTysiecy_c(char* bufNum, uint32_t n);
 
 public:
-    AircraftManager(ConfigurationWebServer& config, HttpRequestManager& httpManager, LGFX& tftGfx)
-        : configServer(config), http(httpManager), tft(tftGfx)
+    AircraftManager(SettingsManager& settingsManager, HttpRequestManager& httpManager, LGFX& tftGfx)
+        : settings(settingsManager), http(httpManager), tft(tftGfx)
     {
     }
     ~AircraftManager() = default;
@@ -50,17 +47,6 @@ public:
     void ForceUpdate();
     void Draw(LGFX_Sprite& backbuffer);
     std::pair<int, int> ProjectCoordinateToScreen(float predLat, float predLon) const;
-
-    // Funkcja do odczytu zmiennej (Getter)
-    int getRad() const { 
-        return rad; 
-    }
-
-    // Funkcja do zapisu zmiennej (Setter)
-    void setRad(int newRad) { 
-        if (newRad > 0 && newRad <= 250) rad = newRad;
-        else if (newRad > 250) rad = 250;
-        else rad = 10;
-    }
-
+    void setRad(int newRad);
+    
 };

@@ -12,6 +12,7 @@
 #include "Home.h"
 #include "driver/touch_pad.h"
 #include <atomic>
+#include "SettingsManager.h"
 
 
 #define TOUCH_THRESHOLD 100000
@@ -35,7 +36,6 @@ void touchTask(void *pvParameters);
 void aircraftsUpdateTask(void *pvParameters);
 
 
-bool g_restartNeeded = false;
 unsigned long g_lastZoomChange = 0;
 std::atomic<bool> g_zoomChangeActive{false};
 std::atomic<bool> g_requestZoomIn{false};
@@ -45,9 +45,12 @@ std::atomic<bool> g_requestZoomOut{false};
 LGFX tft;
 LGFX_Sprite backbuffer(&tft);
 WiFiManager wm;
-ConfigurationWebServer configServer;
 HttpRequestManager http;
-AircraftManager aircraftManager(configServer, http, tft);
+SettingsManager settingsManager;
+AircraftManager aircraftManager(settingsManager, http, tft);
+ConfigurationWebServer configServer(settingsManager, aircraftManager);
+
+
 
 
 
@@ -91,6 +94,7 @@ void setup()
   tft.fillScreen(TFT_BLACK);
   tft.drawCentreString("Initializing...", tft.width() / 2, tft.height() / 2);
 
+  settingsManager.Initialise();
   configServer.Initialise();
   aircraftManager.Initialise();
 
@@ -121,11 +125,6 @@ void setup()
 
 void loop()
 {
-  if (g_restartNeeded) {
-    delay(500);
-    ESP.restart();
-  }
-  
   readSerialCommands();
 
   if (g_requestZoomIn) {
@@ -238,7 +237,7 @@ void readSerialCommands() {
 
 
 void commandZoomIn() {
-  aircraftManager.setRad(aircraftManager.getRad() - 10);
+  aircraftManager.setRad(settingsManager.GetRadius() - 10);
   g_lastZoomChange = millis();
   g_zoomChangeActive = true;    
 }
@@ -246,7 +245,7 @@ void commandZoomIn() {
 
 
 void commandZoomOut() {
-  aircraftManager.setRad(aircraftManager.getRad() + 10);
+  aircraftManager.setRad(settingsManager.GetRadius() + 10);
   g_lastZoomChange = millis();
   g_zoomChangeActive = true;    
 }
@@ -284,7 +283,7 @@ void aircraftsUpdateTask(void *pvParameters) {
         // Zabezpieczenie przed pobieraniem danych zaraz po kliknięciu Zoom
         if (!g_zoomChangeActive) {
             // Wewnątrz Update() samoloty będą już zabezpieczone Mutexem!
-            aircraftManager.Update(); 
+            aircraftManager.Update();
         }
         vTaskDelay(pdMS_TO_TICKS(10)); 
     }

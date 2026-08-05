@@ -1,27 +1,25 @@
 #pragma once
 
 #include <ESPAsyncWebServer.h>
-#include <Preferences.h>
+#include "SettingsManager.h"
+#include "AircraftManager.h"
+
 
 extern bool g_restartNeeded;
 
 class ConfigurationWebServer {
 private:
     AsyncWebServer server;
-    Preferences prefs;
+    SettingsManager& settings;
+    AircraftManager& aircraftmanager;
+    
     void psram_replace(char *buffer, size_t max_len, const char *old_str, const char *new_str);
 
 public:
-    ConfigurationWebServer() : server(80) {};
-    ConfigurationWebServer(int port) : server(port) {};
+    ConfigurationWebServer(SettingsManager& settingsManager, AircraftManager& aircraftManager) : server(80), settings(settingsManager), aircraftmanager(aircraftManager) {};
+    ConfigurationWebServer(int port, SettingsManager& settingsManager, AircraftManager& aircraftManager) : server(port), settings(settingsManager), aircraftmanager(aircraftManager) {};
 
     void Initialise();
-    double GetStoredDouble(const char* key, double defaultValue);
-    int GetStoredInt(const char* key, int defaultValue);
-    bool GetStoredBool(const char* key, bool defaultValue);
-    void SaveDouble(const char* key, double value);
-    void SaveInt(const char* key, int value);
-    void SaveBool(const char* key, bool value);
 };
 
 
