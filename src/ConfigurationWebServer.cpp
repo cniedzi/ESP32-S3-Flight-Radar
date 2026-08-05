@@ -95,9 +95,22 @@ static const char CONFIG_HTML[] = R"rawliteral(
         <script>
             document.getElementById('cfg').addEventListener('submit', function(e) {
                 e.preventDefault();
-                fetch(this.action, { method: 'POST', body: new FormData(this) })
-                    .then(r => r.text())
-                    .then(html => document.getElementById('result').innerHTML = html);
+                const encodedData = new URLSearchParams(new FormData(this));
+                
+                fetch(this.action, { 
+                    method: 'POST', 
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: encodedData 
+                })
+                .then(r => {
+                    const resDiv = document.getElementById('result');
+                    resDiv.innerHTML = "Saved...";
+                    setTimeout(() => {
+                        resDiv.innerHTML = "";
+                    }, 1000);
+                });
             });
         </script>
     </body>
