@@ -16,7 +16,7 @@ static const char CONFIG_HTML[] = R"rawliteral(
             <form id="cfg" action="/save" method="POST" class="flex flex-col gap-4 sm:gap-2">
 
                 <div class="flex flex-col sm:flex-row gap-4 sm:gap-5">
-                    <label class="flex flex-col sm:flex-row gap-2 flex-1">
+                    <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-1">
                         <span>Latitude:</span>
                         <input
                             name="latitude"
@@ -28,7 +28,7 @@ static const char CONFIG_HTML[] = R"rawliteral(
                             class="border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
                     </label>
 
-                    <label class="flex flex-col sm:flex-row gap-2 flex-1">
+                    <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-1">
                         <span>Longitude:</span>
                         <input
                             name="longitude"

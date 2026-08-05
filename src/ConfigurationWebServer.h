@@ -5,8 +5,6 @@
 #include "AircraftManager.h"
 
 
-extern bool g_restartNeeded;
-
 class ConfigurationWebServer {
 private:
     AsyncWebServer server;

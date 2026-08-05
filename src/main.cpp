@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <WiFiManager.h>
+#include <driver/touch_pad.h>
+#include <atomic>
 #include "LGFX.h"
-#include "WiFiManagerHelpers.h"
 #include "ConfigurationWebServer.h"
 #include "HttpRequestManager.h"
 #include "AircraftManager.h"
@@ -10,11 +11,10 @@
 #include "Airports.h"
 #include "PolandMap.h"
 #include "Home.h"
-#include "driver/touch_pad.h"
-#include <atomic>
 #include "SettingsManager.h"
 
 
+#define WAITING_FOR_WIFI_TIME 5000 //ms
 #define TOUCH_THRESHOLD 100000
 #define TOUCH_DEBOUNCE_MS 300
 #define TOUCH_ZOOM_IN TOUCH_PAD_NUM4
@@ -24,6 +24,7 @@
 #define HOME_LON 20.537429
 #define SCREEN_SIZE 480
 #define SCREEN_SIZE_DIV_2 SCREEN_SIZE / 2
+#define CONFIG_PORTAL_TIMEOUT 180
 
 
 void drawHome(LGFX_Sprite& backbuffer);
@@ -34,6 +35,7 @@ void commandZoomIn();
 void commandZoomOut();
 void touchTask(void *pvParameters);
 void aircraftsUpdateTask(void *pvParameters);
+bool isTouchedOnStartup();
 
 
 unsigned long g_lastZoomChange = 0;
@@ -44,7 +46,6 @@ std::atomic<bool> g_requestZoomOut{false};
 
 LGFX tft;
 LGFX_Sprite backbuffer(&tft);
-WiFiManager wm;
 HttpRequestManager http;
 SettingsManager settingsManager;
 AircraftManager aircraftManager(settingsManager, http, tft);
@@ -75,21 +76,40 @@ void setup()
   touch_pad_filter_enable();
   touch_pad_fsm_start(); //Uruchomienie ciągłego pomiaru w tle
 
+  WiFi.begin();
+  WiFiManager wm;
+
   tft.init();
   tft.setSwapBytes(true);
   tft.setRotation(1);
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_WHITE);
+
+  if (isTouchedOnStartup()) {
+    constexpr const char* apName = "Flightradar-Setup";
+    const int lineHeight = tft.fontHeight() + 10;
+    tft.drawCenterString("- SETUP -", tft.width() / 2, tft.height() / 2 - lineHeight);
+    tft.drawCenterString("Connect to this WiFi hotspot:", tft.width() / 2, tft.height() / 2);
+    tft.drawCenterString(apName, tft.width() / 2, tft.height() / 2 + lineHeight);
+    wm.setConfigPortalTimeout(CONFIG_PORTAL_TIMEOUT);
+    wm.startConfigPortal(apName);
+    ESP.restart();
+  }
+
+  tft.drawCentreString("Connecting to WiFi...", tft.width() / 2, tft.height() / 2);
 
   backbuffer.setPsram(true);
   backbuffer.setColorDepth(8);
   backbuffer.setSwapBytes(tft.getSwapBytes());
   backbuffer.createSprite(SCREEN_SIZE, SCREEN_SIZE);
-
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE);
-  tft.drawCentreString("Connecting to WiFi...", tft.width() / 2, tft.height() / 2);
-
-  WiFiManagerHelpers::ConfigureWiFiManager(wm, tft);
-  wm.autoConnect(WiFiManagerHelpers::WiFiManagerName);
+  
+  unsigned long waitingForWiFiStart = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - waitingForWiFiStart > WAITING_FOR_WIFI_TIME) {
+      ESP.restart();
+    }
+    delay(10);
+  }
 
   tft.fillScreen(TFT_BLACK);
   tft.drawCentreString("Initializing...", tft.width() / 2, tft.height() / 2);
@@ -287,4 +307,16 @@ void aircraftsUpdateTask(void *pvParameters) {
         }
         vTaskDelay(pdMS_TO_TICKS(10)); 
     }
+}
+
+
+
+bool isTouchedOnStartup() {
+    bool result = false;
+    uint32_t touchInValue = 0;
+    uint32_t touchOutValue = 0;
+    touch_pad_filter_read_smooth(TOUCH_ZOOM_IN, &touchInValue);
+    touch_pad_filter_read_smooth(TOUCH_ZOOM_OUT, &touchOutValue);
+    if (touchInValue >= TOUCH_THRESHOLD || touchOutValue >= TOUCH_THRESHOLD) result = true;
+    return result;
 }
