@@ -8,6 +8,7 @@
 #include "SettingsManager.h"
 #include "HttpRequestManager.h"
 #include "LGFX.h"
+#include "Config.h"
 
 
 class AircraftManager

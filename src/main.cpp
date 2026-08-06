@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <WiFiManager.h>
-#include <driver/touch_pad.h>
+#include <driver/touch_sens.h>
 #include <atomic>
 #include "LGFX.h"
 #include "ConfigurationWebServer.h"
@@ -12,15 +12,14 @@
 #include "PolandMap.h"
 #include "Home.h"
 #include "SettingsManager.h"
+#include "Config.h"
 
-#define DISPLAY_WIDTH 480
-#define DISPLAY_HEIGHT 320
 
 #define WAITING_FOR_WIFI_TIME 5000 //ms
-#define TOUCH_THRESHOLD 100000
+#define TOUCH_THRESHOLD 4000
 #define TOUCH_DEBOUNCE_MS 300
-#define TOUCH_ZOOM_IN TOUCH_PAD_NUM4
-#define TOUCH_ZOOM_OUT TOUCH_PAD_NUM5
+#define TOUCH_ZOOM_IN 4  // numer kanału dotykowego (odpowiednik starego TOUCH_PAD_NUM4)
+#define TOUCH_ZOOM_OUT 5 // numer kanału dotykowego (odpowiednik starego TOUCH_PAD_NUM5)
 #define AIRPORT_COLOR 0x2bf8
 #define CONFIG_PORTAL_TIMEOUT 180 //s
 
@@ -31,9 +30,11 @@ void drawPolandMap(LGFX_Sprite& radarSprite, uint16_t color = TFT_DARKGREY);
 void readSerialCommands();
 void commandZoomIn();
 void commandZoomOut();
-void touchTask(void *pvParameters);
 void aircraftsUpdateTask(void *pvParameters);
+void configureTouchSensor();
+void touchTask(void *pvParameters);
 bool isTouchedOnStartup();
+
 
 
 unsigned long g_lastZoomChange = 0;
@@ -41,6 +42,9 @@ std::atomic<bool> g_zoomChangeActive{false};
 std::atomic<bool> g_requestZoomIn{false};
 std::atomic<bool> g_requestZoomOut{false};
 
+touch_sensor_handle_t g_touchSensHandle = NULL;
+touch_channel_handle_t g_touchChanZoomIn = NULL;
+touch_channel_handle_t g_touchChanZoomOut = NULL;
 
 LGFX tft;
 LGFX_Sprite radarSprite(&tft);
@@ -60,19 +64,7 @@ void setup()
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, HIGH);
 
-  touch_pad_init();
-  touch_pad_config(TOUCH_ZOOM_IN);
-  touch_pad_config(TOUCH_ZOOM_OUT);
-  touch_filter_config_t filter_info = {
-      .mode = TOUCH_PAD_FILTER_IIR_16,
-      .debounce_cnt = 1,
-      .noise_thr = 0,
-      .jitter_step = 4,
-      .smh_lvl = TOUCH_PAD_SMOOTH_IIR_2
-  };
-  touch_pad_filter_set_config(&filter_info);
-  touch_pad_filter_enable();
-  touch_pad_fsm_start();
+  configureTouchSensor();
 
   WiFi.begin();
   WiFiManager wm;
@@ -162,8 +154,9 @@ void loop()
   radarSprite.fillScreen(TFT_BLACK);
   drawPolandMap(radarSprite);
   drawAirports(radarSprite);
-  aircraftManager.Draw(radarSprite);
   drawHome(radarSprite);
+  aircraftManager.Draw(radarSprite);
+  
   radarSprite.pushSprite(0, 0);
   delay(10);
 
@@ -251,6 +244,51 @@ void commandZoomOut() {
 
 
 
+void aircraftsUpdateTask(void *pvParameters) {
+    for(;;) {
+        if (!g_zoomChangeActive) {
+            aircraftManager.Update();
+        }
+        vTaskDelay(pdMS_TO_TICKS(10)); 
+    }
+}
+
+
+
+void configureTouchSensor() {
+    touch_sensor_sample_config_t touchSampleCfg = TOUCH_SENSOR_V2_DEFAULT_SAMPLE_CONFIG(16, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_2V7);
+    touch_sensor_config_t touchSensCfg = TOUCH_SENSOR_DEFAULT_BASIC_CONFIG(1, &touchSampleCfg);
+    ESP_ERROR_CHECK(touch_sensor_new_controller(&touchSensCfg, &g_touchSensHandle));
+
+    touch_channel_config_t touchChanCfg = {
+      .active_thresh = {500},
+      .charge_speed = TOUCH_CHARGE_SPEED_7,
+      .init_charge_volt = TOUCH_INIT_CHARGE_VOLT_DEFAULT,
+    };
+    ESP_ERROR_CHECK(touch_sensor_new_channel(g_touchSensHandle, TOUCH_ZOOM_IN, &touchChanCfg, &g_touchChanZoomIn));
+    ESP_ERROR_CHECK(touch_sensor_new_channel(g_touchSensHandle, TOUCH_ZOOM_OUT, &touchChanCfg, &g_touchChanZoomOut));
+
+    touch_sensor_filter_config_t touchFilterCfg = {
+        .benchmark = {
+            .filter_mode = TOUCH_BM_IIR_FILTER_16,
+            .jitter_step = 4,
+            .denoise_lvl = 0,
+        },
+        .data = {
+            .smooth_filter = TOUCH_SMOOTH_IIR_FILTER_2,
+            .active_hysteresis = 0,
+            .debounce_cnt = 1,
+        },
+    };
+    ESP_ERROR_CHECK(touch_sensor_config_filter(g_touchSensHandle, &touchFilterCfg));
+
+    ESP_ERROR_CHECK(touch_sensor_enable(g_touchSensHandle));
+    ESP_ERROR_CHECK(touch_sensor_start_continuous_scanning(g_touchSensHandle));
+    delay(50);
+}
+
+
+
 void touchTask(void *pvParameters) {
     unsigned long localLastTouchTime = 0;
     
@@ -258,8 +296,8 @@ void touchTask(void *pvParameters) {
         if (millis() - localLastTouchTime >= TOUCH_DEBOUNCE_MS) {
             uint32_t touchInValue = 0;
             uint32_t touchOutValue = 0;
-            touch_pad_filter_read_smooth(TOUCH_ZOOM_IN, &touchInValue);
-            touch_pad_filter_read_smooth(TOUCH_ZOOM_OUT, &touchOutValue);
+            touch_channel_read_data(g_touchChanZoomIn, TOUCH_CHAN_DATA_TYPE_SMOOTH, &touchInValue);
+            touch_channel_read_data(g_touchChanZoomOut, TOUCH_CHAN_DATA_TYPE_SMOOTH, &touchOutValue);
             if (touchInValue >= TOUCH_THRESHOLD) {
                 g_requestZoomIn = true;
                 localLastTouchTime = millis();
@@ -275,23 +313,12 @@ void touchTask(void *pvParameters) {
 
 
 
-void aircraftsUpdateTask(void *pvParameters) {
-    for(;;) {
-        if (!g_zoomChangeActive) {
-            aircraftManager.Update();
-        }
-        vTaskDelay(pdMS_TO_TICKS(10)); 
-    }
-}
-
-
-
 bool isTouchedOnStartup() {
     bool result = false;
     uint32_t touchInValue = 0;
     uint32_t touchOutValue = 0;
-    touch_pad_filter_read_smooth(TOUCH_ZOOM_IN, &touchInValue);
-    touch_pad_filter_read_smooth(TOUCH_ZOOM_OUT, &touchOutValue);
+    touch_channel_read_data(g_touchChanZoomIn, TOUCH_CHAN_DATA_TYPE_SMOOTH, &touchInValue);
+    touch_channel_read_data(g_touchChanZoomOut, TOUCH_CHAN_DATA_TYPE_SMOOTH, &touchOutValue);
     if (touchInValue >= TOUCH_THRESHOLD || touchOutValue >= TOUCH_THRESHOLD) result = true;
     return result;
 }

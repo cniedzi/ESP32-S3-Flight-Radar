@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config.h"
 #include <LovyanGFX.hpp>
 
 #define TFT_DC 14
@@ -42,10 +43,10 @@ public:
             auto cfg = _panel.config();
             cfg.pin_cs        = TFT_CS;
             cfg.pin_rst       = TFT_RST;
-            cfg.memory_width  = 320;
-            cfg.memory_height = 480;
-            cfg.panel_width   = 320;
-            cfg.panel_height  = 480;
+            cfg.memory_width  = DISPLAY_HEIGHT;
+            cfg.memory_height = DISPLAY_WIDTH;
+            cfg.panel_width   = DISPLAY_HEIGHT;
+            cfg.panel_height  = DISPLAY_WIDTH;
             cfg.offset_x      = 0;
             cfg.offset_y      = 0;
             cfg.offset_rotation = 0;
