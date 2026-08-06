@@ -1,3 +1,6 @@
+//  FLIGHTRADAR ESP32
+//  C. Niedziński 2026
+
 #include <Arduino.h>
 #include <WiFiManager.h>
 #include <driver/touch_sens.h>
