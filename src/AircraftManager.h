@@ -30,9 +30,9 @@ private:
     HttpRequestManager& http;
     LGFX& tft;
 
-    void DrawRadarCircles(LGFX_Sprite& backbuffer) const;
-    void DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
-    void DrawAircraft(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const;
+    void DrawRadarCircles(LGFX_Sprite& radarSprite) const;
+    void DrawAircraftInfo(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const;
+    void DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const;
     char* separatorTysiecy_c(char* bufNum, uint32_t n);
 
 public:
@@ -45,7 +45,7 @@ public:
     void Initialise();
     void Update();
     void ForceUpdate();
-    void Draw(LGFX_Sprite& backbuffer);
+    void Draw(LGFX_Sprite& radarSprite);
     std::pair<int, int> ProjectCoordinateToScreen(float predLat, float predLon) const;
     void setRad(int newRad);
     

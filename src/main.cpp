@@ -13,6 +13,8 @@
 #include "Home.h"
 #include "SettingsManager.h"
 
+#define DISPLAY_WIDTH 480
+#define DISPLAY_HEIGHT 320
 
 #define WAITING_FOR_WIFI_TIME 5000 //ms
 #define TOUCH_THRESHOLD 100000
@@ -20,14 +22,12 @@
 #define TOUCH_ZOOM_IN TOUCH_PAD_NUM4
 #define TOUCH_ZOOM_OUT TOUCH_PAD_NUM5
 #define AIRPORT_COLOR 0x2bf8
-#define SCREEN_SIZE 480
-#define SCREEN_SIZE_DIV_2 SCREEN_SIZE / 2
 #define CONFIG_PORTAL_TIMEOUT 180
 
 
-void drawHome(LGFX_Sprite& backbuffer);
-void drawAirports(LGFX_Sprite& backbuffer);
-void drawPolandMap(LGFX_Sprite& backbuffer, uint16_t color = TFT_DARKGREY);
+void drawHome(LGFX_Sprite& radarSprite);
+void drawAirports(LGFX_Sprite& radarSprite);
+void drawPolandMap(LGFX_Sprite& radarSprite, uint16_t color = TFT_DARKGREY);
 void readSerialCommands();
 void commandZoomIn();
 void commandZoomOut();
@@ -43,7 +43,7 @@ std::atomic<bool> g_requestZoomOut{false};
 
 
 LGFX tft;
-LGFX_Sprite backbuffer(&tft);
+LGFX_Sprite radarSprite(&tft);
 HttpRequestManager http;
 SettingsManager settingsManager;
 AircraftManager aircraftManager(settingsManager, http, tft);
@@ -96,10 +96,10 @@ void setup()
 
   tft.drawCentreString("Connecting to WiFi...", tft.width() / 2, tft.height() / 2);
 
-  backbuffer.setPsram(true);
-  backbuffer.setColorDepth(8);
-  backbuffer.setSwapBytes(tft.getSwapBytes());
-  backbuffer.createSprite(SCREEN_SIZE, SCREEN_SIZE);
+  radarSprite.setPsram(true);
+  radarSprite.setColorDepth(8);
+  radarSprite.setSwapBytes(tft.getSwapBytes());
+  radarSprite.createSprite(DISPLAY_WIDTH, DISPLAY_HEIGHT);
   
   unsigned long waitingForWiFiStart = millis();
   while (WiFi.status() != WL_CONNECTED) {
@@ -159,39 +159,39 @@ void loop()
     aircraftManager.ForceUpdate();
   }
   
-  backbuffer.fillScreen(TFT_BLACK);
-  drawPolandMap(backbuffer);
-  drawAirports(backbuffer);
-  aircraftManager.Draw(backbuffer);
-  drawHome(backbuffer);
-  backbuffer.pushSprite(0, -80);
+  radarSprite.fillScreen(TFT_BLACK);
+  drawPolandMap(radarSprite);
+  drawAirports(radarSprite);
+  aircraftManager.Draw(radarSprite);
+  drawHome(radarSprite);
+  radarSprite.pushSprite(0, 0);
   delay(10);
 
 }
 
 
 
-void drawHome(LGFX_Sprite& backbuffer)
+void drawHome(LGFX_Sprite& radarSprite)
 {
     const uint8_t HOME_WIDTH = 18;  
     const uint8_t HOME_HEIGHT = 15;
     auto [x, y] = aircraftManager.ProjectCoordinateToScreen(settingsManager.GetLatitude(), settingsManager.GetLongitude());
-    backbuffer.pushImage(x - HOME_WIDTH / 2, y - HOME_HEIGHT / 2 - 1 , HOME_WIDTH, HOME_HEIGHT, HOME, TFT_BLACK);
+    radarSprite.pushImage(x - HOME_WIDTH / 2, y - HOME_HEIGHT / 2 - 1 , HOME_WIDTH, HOME_HEIGHT, HOME, TFT_BLACK);
 }
 
 
 
-void drawAirports(LGFX_Sprite& backbuffer) {
+void drawAirports(LGFX_Sprite& radarSprite) {
     // Iterujemy po każdym lotnisku w tablicy
     for (const auto& airport : airportList) {
         // Przeliczenie współrzędnych z danego lotniska na pozycję (X, Y) na ekranie
         auto [x, y] = aircraftManager.ProjectCoordinateToScreen(airport.latitude, airport.longitude);
         
         // Rysowanie kropki (znacznika) lotniska
-        backbuffer.drawCircle(x, y, 3, AIRPORT_COLOR);
+        radarSprite.drawCircle(x, y, 3, AIRPORT_COLOR);
 
         // Ustawienie koloru tekstu (biały) i tła (0x2bf8, żeby ładnie współgrało z kropką)
-        backbuffer.setTextColor(TFT_WHITE, AIRPORT_COLOR);
+        radarSprite.setTextColor(TFT_WHITE, AIRPORT_COLOR);
 
         // Przygotowanie etykiety ze spacjami na obrzeżach (np. " EPWA ") 
         // Używamy bufora char zamiast obiektu String dla maksymalnej wydajności RAM!
@@ -199,14 +199,14 @@ void drawAirports(LGFX_Sprite& backbuffer) {
         snprintf(label, sizeof(label), " %s ", airport.icao);
 
         // Rysowanie nazwy obok kropki (przesunięcie w prawo i do góry)
-        backbuffer.drawString(label, x + 10, y - 10);
+        radarSprite.drawString(label, x + 10, y - 10);
     }
 }
 
 
 
 // Funkcja rysująca obrys na buforze (sprite) LovyanGFX
-void drawPolandMap(LGFX_Sprite& backbuffer, uint16_t color) {
+void drawPolandMap(LGFX_Sprite& radarSprite, uint16_t color) {
     int prevX = -1;
     int prevY = -1;
     const int polandPointsCount = sizeof(polandBorder) / sizeof(polandBorder[0]);
@@ -215,7 +215,7 @@ void drawPolandMap(LGFX_Sprite& backbuffer, uint16_t color) {
         // Przeliczenie współrzędnych granicy na piksele ekranu
         auto [x, y] = aircraftManager.ProjectCoordinateToScreen(polandBorder[i].lat, polandBorder[i].lon);
         if (i > 0) {
-            backbuffer.drawLine(prevX, prevY, x, y, color); // Rysowanie odcinka granicy między poprzednim a obecnym punktem
+            radarSprite.drawLine(prevX, prevY, x, y, color); // Rysowanie odcinka granicy między poprzednim a obecnym punktem
         }
         prevX = x;
         prevY = y;

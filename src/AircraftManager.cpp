@@ -4,8 +4,11 @@
 #include <WiFi.h>
 
 
-#define SCREEN_SIZE 480
-#define SCREEN_SIZE_DIV_2 SCREEN_SIZE / 2
+#define RADAR_SIZE 480
+#define DISPLAY_WIDTH 480
+#define DISPLAY_HEIGHT 320
+#define DISPLAY_WIDTH_DIV_2 DISPLAY_WIDTH / 2
+#define DISPLAY_HEIGHT_DIV_2 DISPLAY_HEIGHT / 2
 #define FETCH_INTERVAL 5000 //ms
 
 
@@ -87,72 +90,73 @@ void AircraftManager::Update()
 
 
 
-void AircraftManager::Draw(LGFX_Sprite& backbuffer)
+void AircraftManager::Draw(LGFX_Sprite& radarSprite)
 {
     std::lock_guard<std::mutex> lock(_dataMutex);
    
-    DrawRadarCircles(backbuffer);
+    DrawRadarCircles(radarSprite);
     for (auto& [icao, tracked] : trackedAircraft) {
         if (tracked.state.onGround) continue;
         tracked.Tick();
         auto [predLat, predLon] = tracked.GetDisplayPosition();
         auto [x, y] = ProjectCoordinateToScreen(predLat, predLon);
 
-        if (x < 0 || x > 480 || y < 80 || y > 400) continue;
+        if (x < -50 || x > DISPLAY_WIDTH + 50 || y < -50 || y > DISPLAY_HEIGHT + 50) continue;
 
-        if (settings.GetInfoTextVisible()) DrawAircraftInfo(backbuffer, x, y, tracked);
+        if (settings.GetInfoTextVisible()) DrawAircraftInfo(radarSprite, x, y, tracked);
 
-        DrawAircraft(backbuffer, x, y, tracked);
+        DrawAircraft(radarSprite, x, y, tracked);
     }
-    int currentY = 80;
-    const uint8_t lineHeight = backbuffer.fontHeight() + 3;
+    int currentY = 0;
+    const uint8_t lineHeight = radarSprite.fontHeight() + 3;
     if (settings.GetDisplayMemoryInfo()) {
         char buf[15];
-        backbuffer.setTextDatum(top_left);
-        backbuffer.setCursor(0, currentY); backbuffer.setTextColor(TFT_ORANGE); backbuffer.printf("Free heap: %sB", separatorTysiecy_c(buf, ESP.getFreeHeap())); currentY += lineHeight;
-        backbuffer.setCursor(0, currentY); backbuffer.setTextColor(TFT_ORANGE); backbuffer.printf("Free PSRAM: %sB", separatorTysiecy_c(buf, ESP.getFreePsram())); currentY += lineHeight;
+        radarSprite.setTextDatum(top_left);
+        radarSprite.setCursor(0, currentY); radarSprite.setTextColor(TFT_ORANGE); radarSprite.printf("Free heap: %sB", separatorTysiecy_c(buf, ESP.getFreeHeap())); currentY += lineHeight;
+        radarSprite.setCursor(0, currentY); radarSprite.setTextColor(TFT_ORANGE); radarSprite.printf("Free PSRAM: %sB", separatorTysiecy_c(buf, ESP.getFreePsram())); currentY += lineHeight;
         
     }
     if (settings.GetDisplayRSSI()) {
-        backbuffer.setTextDatum(top_left);
-        backbuffer.setCursor(0, currentY);
-        backbuffer.setTextColor(TFT_ORANGE);backbuffer.printf("RSSI: %ddBm", WiFi.RSSI());
+        radarSprite.setTextDatum(top_left);
+        radarSprite.setCursor(0, currentY);
+        radarSprite.setTextColor(TFT_ORANGE);radarSprite.printf("RSSI: %ddBm", WiFi.RSSI());
     }
     if (settings.GetDisplayRange()) {
-        backbuffer.setTextDatum(top_center);
-        backbuffer.setTextColor(TFT_WHITE, TFT_MAGENTA); //0xa361);
+        radarSprite.setTextDatum(top_center);
+        radarSprite.setTextColor(TFT_WHITE, TFT_MAGENTA);
         char rangeText[15];
         snprintf(rangeText, sizeof(rangeText), " Range %dnm ", settings.GetRadius());
-        backbuffer.drawString(rangeText, backbuffer.width() / 2, 80);
-        backbuffer.setTextDatum(top_left);
+        radarSprite.drawString(rangeText, radarSprite.width() / 2, 0);
+        radarSprite.setTextDatum(top_left);
     }
     if (settings.GetDisplayAircraftsUpdateIndicator()) {
-        if (isFetching.load()) backbuffer.fillCircle(SCREEN_SIZE - 6, 86, 5, tft.color565(6, 85, 150));
+        if (isFetching.load()) radarSprite.fillCircle(DISPLAY_WIDTH - 6, 6, 5, tft.color565(6, 85, 150));
     }
 }
 
 
 
-void AircraftManager::DrawRadarCircles(LGFX_Sprite& backbuffer) const
+void AircraftManager::DrawRadarCircles(LGFX_Sprite& radarSprite) const
 {
-    constexpr int CENTRE = SCREEN_SIZE_DIV_2 - 1;
-    constexpr int OUTER = SCREEN_SIZE_DIV_2 - 1;
+    constexpr int CENTRE_X = DISPLAY_WIDTH_DIV_2;
+    constexpr int CENTRE_Y = DISPLAY_HEIGHT_DIV_2;
+    constexpr int OUTER = DISPLAY_WIDTH_DIV_2 - 1;
 
     int r1 = OUTER / 3;
     int r2 = (2 * OUTER) / 3;
     int r3 = OUTER;
 
     // Rysowanie okręgów
-    backbuffer.drawCircle(CENTRE, CENTRE, r3, lgfx::color565(0, 64, 0));
-    backbuffer.drawCircle(CENTRE, CENTRE, r2, lgfx::color565(0, 64, 0));
-    backbuffer.drawCircle(CENTRE, CENTRE, r1, lgfx::color565(0, 64, 0));
+    radarSprite.drawCircle(CENTRE_X, CENTRE_Y, r3, lgfx::color565(0, 64, 0));
+    radarSprite.drawCircle(CENTRE_X, CENTRE_Y, r2, lgfx::color565(0, 64, 0));
+    radarSprite.drawCircle(CENTRE_X, CENTRE_Y, r1, lgfx::color565(0, 64, 0));
 
     // Konfiguracja stylu tekstu
-    backbuffer.setTextSize(1);
-    backbuffer.setTextColor(lgfx::color565(0, 128, 0), TFT_BLACK);
+    radarSprite.setTextSize(1);
+    radarSprite.setTextColor(lgfx::color565(0, 128, 0), TFT_BLACK);
     
     // Ustawienie centrowania tekstu
-    backbuffer.setTextDatum(middle_center); 
+    radarSprite.setTextDatum(middle_center); 
 
     // Obliczenie wartości zasięgu
     int range1 = static_cast<int>(settings.GetRadius() / 3.0f + 0.5f);
@@ -176,15 +180,15 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& backbuffer) const
 
     // Wyświetlenie napisów pod kątem 30 stopni
     for (const auto& rc : ranges) {
-        int x = CENTRE + static_cast<int>(static_cast<float>(rc.radius) * cosA);
-        int y = CENTRE - static_cast<int>(static_cast<float>(rc.radius) * sinA);
+        int x = CENTRE_X + static_cast<int>(static_cast<float>(rc.radius) * cosA);
+        int y = CENTRE_Y - static_cast<int>(static_cast<float>(rc.radius) * sinA);
         
         // Lekkie odsunięcie na zewnątrz okręgu (np. o 6 pikseli)
         int labelX = x + static_cast<int>(6.0f * cosA);
         int labelY = y - static_cast<int>(6.0f * sinA);
 
-        backbuffer.setCursor(labelX, labelY);
-        backbuffer.printf("%dnm", rc.value);
+        radarSprite.setCursor(labelX, labelY);
+        radarSprite.printf("%dnm", rc.value);
     }
     
 }
@@ -207,13 +211,13 @@ std::pair<int, int> AircraftManager::ProjectCoordinateToScreen(float predLat, fl
     const float normLon = (dLonCorrected + radDeg) / (2.0f * radDeg);
     const float normLat = (dLat + radDeg) / (2.0f * radDeg);
 
-    const int x = static_cast<int>(normLon * SCREEN_SIZE);
-    const int y = static_cast<int>(SCREEN_SIZE - (normLat * SCREEN_SIZE));
+    const int x = static_cast<int>(normLon * RADAR_SIZE);
+    const int y = static_cast<int>(RADAR_SIZE - (normLat * RADAR_SIZE) - ((RADAR_SIZE - DISPLAY_HEIGHT) / 2));
 
     return { x, y };
 }
 
-void AircraftManager::DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const
+void AircraftManager::DrawAircraftInfo(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const
 {
     const int lineHeight = tft.fontHeight() + 1;
 
@@ -224,23 +228,23 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, co
     int height_m = static_cast<int>(round(tracked.state.baroAltitude));
     int height_ft = static_cast<int>(round(tracked.state.baroAltitude * 3.28084f));
 
-    backbuffer.setTextSize(1);
-    backbuffer.setTextDatum(top_left);
-    backbuffer.setTextColor(lgfx::color565(0, 128, 0));
-    backbuffer.drawString(tracked.state.callsign, x + 5, y + 5);
-    backbuffer.setTextColor(TFT_CYAN);
-    backbuffer.drawString(tracked.state.type, x + 5, y + 5 + lineHeight);
-    backbuffer.setTextColor(TFT_GRAY);
-    if (settings.GetAltitudeInMeters()) backbuffer.drawString(String(height_m) + "m", x + 5, y + 5 + lineHeight * 2);
-    else backbuffer.drawString(String(height_ft) + "ft", x + 5, y + 5 + lineHeight * 2);
-    if (settings.GetSpeedInKmh()) backbuffer.drawString(String(speed_kmh) + "km/h", x + 5, y + 5 + lineHeight * 3);
-    else backbuffer.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight * 3);
+    radarSprite.setTextSize(1);
+    radarSprite.setTextDatum(top_left);
+    radarSprite.setTextColor(lgfx::color565(0, 128, 0));
+    radarSprite.drawString(tracked.state.callsign, x + 5, y + 5);
+    radarSprite.setTextColor(TFT_CYAN);
+    radarSprite.drawString(tracked.state.type, x + 5, y + 5 + lineHeight);
+    radarSprite.setTextColor(TFT_GRAY);
+    if (settings.GetAltitudeInMeters()) radarSprite.drawString(String(height_m) + "m", x + 5, y + 5 + lineHeight * 2);
+    else radarSprite.drawString(String(height_ft) + "ft", x + 5, y + 5 + lineHeight * 2);
+    if (settings.GetSpeedInKmh()) radarSprite.drawString(String(speed_kmh) + "km/h", x + 5, y + 5 + lineHeight * 3);
+    else radarSprite.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight * 3);
 
 }
 
 
 
-void AircraftManager::DrawAircraft(LGFX_Sprite& backbuffer, int x, int y, const TrackedAircraft& tracked) const
+void AircraftManager::DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const
 {
     // Zdefiniuj wymiary obrazka samolotu (zaktualizuj jeśli tablica ma inne wymiary)
     constexpr int32_t IMG_WIDTH = 14;
@@ -261,7 +265,7 @@ void AircraftManager::DrawAircraft(LGFX_Sprite& backbuffer, int x, int y, const 
     }
 
     // Rysowanie na buforze
-    backbuffer.pushImageRotateZoom(
+    radarSprite.pushImageRotateZoom(
         x, y,                  // Punkt na ekranie, w którym znajdzie się środek obrazka
         pivotX, pivotY,        // Punkt zakotwiczenia (obrotu) na samym obrazku
         angle,                 // Kąt obrotu w stopniach
