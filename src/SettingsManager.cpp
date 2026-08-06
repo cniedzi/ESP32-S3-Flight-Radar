@@ -5,7 +5,7 @@ SettingsManager::SettingsManager() {
 }
 
 void SettingsManager::Initialise() {
-    preferences.begin("config", false); // Otwieramy raz na starcie w trybie odczyt/zapis
+    preferences.begin("config", false);
     _Lat = preferences.getDouble("latitude", 52.010457);
     _Lon = preferences.getDouble("longitude", 20.537429);
     _Range = preferences.getInt("range", 60);

@@ -2,7 +2,7 @@
 
 #include <HTTPClient.h>
 #include <vector>
-#include <ArduinoJson.h> // Dodane: Konieczne do obsługi JsonDocument
+#include <ArduinoJson.h>
 
 struct HttpResult {
     bool success;           // Whether the request succeeded
@@ -19,6 +19,6 @@ public:
     HttpRequestManager() = default;
     ~HttpRequestManager() = default;
 
-    // Nowa, bezpieczna metoda GET parsująca strumień prosto do JSON
+    // Bezpieczna metoda GET parsująca strumień prosto do JSON
     [[nodiscard]] HttpResult GetJson(const String& url, JsonDocument& jsonDoc);
 };

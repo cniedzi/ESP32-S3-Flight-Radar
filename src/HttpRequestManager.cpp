@@ -36,7 +36,6 @@ HttpResult HttpRequestManager::GetJson(const String& url, JsonDocument& jsonDoc)
                         if (len > 0) len -= c;
                     }
                 }
-                // Kluczowe: yield() wykonuje się w każdym obiegu pętli, zapobiegając uruchomieniu Task Watchdoga przy pobieraniu dużych danych.
                 yield();
             }
             buffer[bytesRead] = '\0';

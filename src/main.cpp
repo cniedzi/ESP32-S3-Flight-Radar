@@ -18,8 +18,8 @@
 #define WAITING_FOR_WIFI_TIME 5000 //ms
 #define TOUCH_THRESHOLD 4000
 #define TOUCH_DEBOUNCE_MS 300
-#define TOUCH_ZOOM_IN 4  // numer kanału dotykowego (odpowiednik starego TOUCH_PAD_NUM4)
-#define TOUCH_ZOOM_OUT 5 // numer kanału dotykowego (odpowiednik starego TOUCH_PAD_NUM5)
+#define TOUCH_ZOOM_IN 4
+#define TOUCH_ZOOM_OUT 5
 #define AIRPORT_COLOR 0x2bf8
 #define CONFIG_PORTAL_TIMEOUT 180 //s
 
@@ -34,7 +34,6 @@ void aircraftsUpdateTask(void *pvParameters);
 void configureTouchSensor();
 void touchTask(void *pvParameters);
 bool isTouchedOnStartup();
-
 
 
 unsigned long g_lastZoomChange = 0;
@@ -52,7 +51,6 @@ HttpRequestManager http;
 SettingsManager settingsManager;
 AircraftManager aircraftManager(settingsManager, http, tft);
 ConfigurationWebServer configServer(settingsManager, aircraftManager);
-
 
 
 
@@ -129,7 +127,6 @@ void setup()
   );
 
 }
-
 
 
 

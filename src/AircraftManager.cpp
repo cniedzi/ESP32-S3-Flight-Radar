@@ -27,10 +27,10 @@ void AircraftManager::Update()
 
         String url = "https://api.adsb.lol/v2/lat/" + String(settings.GetLatitude(), 4) + "/lon/" + String(settings.GetLongitude(), 4) + "/dist/" + String(settings.GetRange());
 
-        // 0. Alokator PSRAM dla dokumentu JSON
+        // Alokator PSRAM dla dokumentu JSON
         PsramJsonAllocator psramAllocator;
 
-        // 1. Dokument ląduje w całości w PSRAM
+        // Dokument ląduje w całości w PSRAM
         JsonDocument doc(&psramAllocator);
 
         HttpResult result = http.GetJson(url, doc);
@@ -50,12 +50,12 @@ void AircraftManager::Update()
 
         {
             std::lock_guard<std::mutex> lock(_dataMutex);
-            // 2. Bezpośrednia pętla: JSON -> pojedynczy Aircraft -> trackedAircraft
+            // Bezpośrednia pętla: JSON -> pojedynczy Aircraft -> trackedAircraft
             for (JsonObject item : array) {
                 // Parsujemy pojedynczy element w locie
                 Aircraft ac = JsonParser::Parse<Aircraft>(item);
 
-                // Jawnie konwertujemy Arduino String na std::string przed wrzuceniem do setu
+                // Jawnie konwertujemy String na std::string przed wrzuceniem do setu
                 fetchedIcaos.insert(ac.icao24);
 
                 // Od razu aktualizujemy lub dodajemy do głównej bazy
@@ -68,11 +68,11 @@ void AircraftManager::Update()
                 }
             }
 
-            now = millis(); // Aktualizacja znacznika czasu
+            now = millis();
 
-            // 3. Usunięcie samolotów, których już nie ma w nowym strumieniu danych
+            // Usunięcie samolotów, których już nie ma w nowym strumieniu danych
             for (auto it = trackedAircraft.begin(); it != trackedAircraft.end(); ) {
-                // Konwertujemy klucz z mapy (Arduino String) na std::string do wyszukiwania w secie
+                // Konwertujemy klucz z mapy (String) na std::string do wyszukiwania w secie
                 if (fetchedIcaos.find(std::string(it->first.c_str())) == fetchedIcaos.end()) {
                     it = trackedAircraft.erase(it);
                 }
@@ -161,7 +161,7 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& radarSprite) const
     int range2 = static_cast<int>((settings.GetRange() * 2.0f) / 3.0f + 0.5f);
     int range3 = static_cast<int>(settings.GetRange());
 
-    // Kąt w radianach (30 stopni = PI / 6)
+    // Kąt w radianach
     constexpr float angleRad = PI / 6.0f; 
     float sinA = sin(angleRad);
     float cosA = cos(angleRad);
@@ -181,7 +181,7 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& radarSprite) const
         int x = CENTRE_X + static_cast<int>(static_cast<float>(rc.radius) * cosA);
         int y = CENTRE_Y - static_cast<int>(static_cast<float>(rc.radius) * sinA);
         
-        // Lekkie odsunięcie na zewnątrz okręgu (np. o 6 pikseli)
+        // Lekkie odsunięcie na zewnątrz okręgu
         int labelX = x + static_cast<int>(6.0f * cosA);
         int labelY = y - static_cast<int>(6.0f * sinA);
 
@@ -199,10 +199,10 @@ std::pair<int, int> AircraftManager::ProjectCoordinateToScreen(float predLat, fl
     const float dLon = predLon - settings.GetLongitude();
     const float dLat = predLat - settings.GetLatitude();
 
-    // KLUCZOWO: Korekta długości geograficznej ze względu na szerokość (np. w Polsce ok. 0.61)
+    // Korekta długości geograficznej ze względu na szerokość
     const float dLonCorrected = dLon * cos(radians(settings.GetLatitude()));
 
-    // Przeliczenie promienia z mil morskich (NM) na stopnie geograficzne (1 stopień $\approx$ 60 NM)
+    // Przeliczenie promienia z mil morskich (nm) na stopnie geograficzne
     const float radDeg = settings.GetRange() / 60.0f;
 
     // Używamy dLonCorrected zamiast surowego dLon
@@ -219,8 +219,7 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& radarSprite, int x, int y, c
 {
     const int lineHeight = tft.fontHeight() + 1;
 
-    // Uwaga: ADSB.lol zwraca prędkość (gs) bezpośrednio w węzłach, a wysokość (alt_baro) w stopach.
-    // Dostosuj poniższe linie w zależności od tego, jak model Aircraft przypisuje te pola z obiektu JSON ADSB.lol.
+    // ADSB.lol zwraca prędkość (gs) bezpośrednio w węzłach, a wysokość (alt_baro) w stopach.
     int speed_kts = static_cast<int>(round(tracked.state.velocity / 0.514444f));
     int speed_kmh = static_cast<int>(round(tracked.state.velocity * 3.6f));
     int height_m = static_cast<int>(round(tracked.state.baroAltitude));
@@ -244,7 +243,7 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& radarSprite, int x, int y, c
 
 void AircraftManager::DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const
 {
-    // Zdefiniuj wymiary obrazka samolotu (zaktualizuj jeśli tablica ma inne wymiary)
+    // Wymiary obrazka samolotu
     constexpr int32_t IMG_WIDTH = 14;
     constexpr int32_t IMG_HEIGHT = 14;
 
@@ -255,8 +254,6 @@ void AircraftManager::DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const
     // Pobranie kąta (kierunku lotu) bezpośrednio z danych samolotu
     float angle = tracked.state.trueTrack;
 
-    // Opcjonalnie: Jeśli chciałbyś zachować różne kolory w zależności od wysokości,
-    // musisz użyć odpowiedniej tablicy.
     const unsigned short* aircraftSprite = AIRCRAFT;
     if (tracked.state.baroAltitude > 10000) {
         aircraftSprite = AIRCRAFT_HIGH_ALT;
@@ -269,8 +266,8 @@ void AircraftManager::DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const
         angle,                 // Kąt obrotu w stopniach
         1.0f, 1.0f,            // Skala (1.0 = oryginalny rozmiar)
         IMG_WIDTH, IMG_HEIGHT, // Rozmiary tablicy pikseli
-        aircraftSprite,        // Tablica danych (np. wygenerowana z obrazka)
-        TFT_BLACK              // Przezroczysty kolor tła (czarny nie będzie rysowany)
+        aircraftSprite,        // Tablica danych
+        TFT_BLACK              // Przezroczysty kolor tła
     );
 }
 
@@ -283,7 +280,6 @@ void AircraftManager::ForceUpdate() {
 
 
 
-// Separator tysięcy w liczbie - wersja z tablicą znaków
 char* AircraftManager::separatorTysiecy_c(char* bufNum, uint32_t n) {
   int i = 15;
   bufNum[i--] = '\0';
@@ -312,7 +308,6 @@ char* AircraftManager::separatorTysiecy_c(char* bufNum, uint32_t n) {
 
 
 
-// Funkcja do zapisu zmiennej (Setter)
 void AircraftManager::setRad(int newRad) { 
   if (newRad > 0 && newRad <= 250) settings.SetRange(newRad);
   else if (newRad > 250) settings.SetRange(250);

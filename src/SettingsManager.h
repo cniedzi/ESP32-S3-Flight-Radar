@@ -20,7 +20,6 @@ public:
     SettingsManager();
     ~SettingsManager() = default;
 
-    // Funkcja do opcjonalnej inicjalizacji (np. resetowanie danych, jeśli to potrzebne)
     void Initialise();
 
     // ==========================================

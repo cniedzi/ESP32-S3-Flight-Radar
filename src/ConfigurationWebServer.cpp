@@ -202,7 +202,6 @@ void ConfigurationWebServer::psram_replace(char *buffer, size_t max_len, const c
         size_t current_len = strlen(buffer);
         size_t tail_len = strlen(pos + old_len);
 
-        // Zabezpieczenie przed spuchnięciem poza bufor
         if (current_len - old_len + new_len >= max_len - 1) {
             Serial.println("BLAD: Brak miejsca w PSRAM na rozszerzenie tekstu!");
             return; 
@@ -231,8 +230,7 @@ void ConfigurationWebServer::Initialise() {
     server.on("/", HTTP_GET, [&](AsyncWebServerRequest* request) {
         Serial.println("[GET] Handling request to config web server (PSRAM Chunked)...");
 
-        // Alokacja pamięci PSRAM
-        // Dodajemy mały zapas na ewentualne wydłużenie stringa po podmianach
+        // Alokacja pamięci PSRAM - dodajemy mały zapas na ewentualne wydłużenie stringa po podmianach
         size_t maxSize = sizeof(CONFIG_HTML) + 1024; 
         char* localPsramBuf = (char*)heap_caps_malloc(maxSize, MALLOC_CAP_SPIRAM);
         
@@ -242,7 +240,7 @@ void ConfigurationWebServer::Initialise() {
             return;
         }
         
-        // Kopiujemy całą zawartość Flasha (PROGMEM) do bufora w PSRAM
+        // Kopiujemy całą zawartość Flasha do bufora w PSRAM
         strcpy_P(localPsramBuf, CONFIG_HTML);
 
         // Procesor - podmiana zmiennych
@@ -260,7 +258,7 @@ void ConfigurationWebServer::Initialise() {
         psram_replace(localPsramBuf, maxSize, "%RANGEINFO%",  settings.GetDisplayRange() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%UPDATEINFO%", settings.GetDisplayAircraftsUpdateIndicator() ? "checked" : "");
 
-        // Sprawdzamy finalną długość i wysyłamy asynchronicznie (Chunked)
+        // Sprawdzamy finalną długość i wysyłamy asynchronicznie (chunked)
         size_t finalLen = strlen(localPsramBuf);
         
         PSRAMChunkedResponse *response = new PSRAMChunkedResponse(
@@ -299,8 +297,7 @@ void ConfigurationWebServer::Initialise() {
     });
 
     ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-        if (type == WS_EVT_CONNECT) {
-            // Klient się połączył – wysyłamy aktualny radius
+        if (type == WS_EVT_CONNECT) {// Klient się połączył – wysyłamy aktualny radius
             client->text(String(settings.GetRange()));
         }
     });
