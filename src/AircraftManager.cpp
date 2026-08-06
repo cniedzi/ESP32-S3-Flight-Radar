@@ -219,8 +219,10 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, co
 
     // Uwaga: ADSB.lol zwraca prędkość (gs) bezpośrednio w węzłach, a wysokość (alt_baro) w stopach.
     // Dostosuj poniższe linie w zależności od tego, jak model Aircraft przypisuje te pola z obiektu JSON ADSB.lol.
-    int speed_kts = (int)(tracked.state.velocity / 0.514444f);
-    int height_m = (int)(tracked.state.baroAltitude);
+    int speed_kts = static_cast<int>(round(tracked.state.velocity / 0.514444f));
+    int speed_kmh = static_cast<int>(round(tracked.state.velocity * 3.6f));
+    int height_m = static_cast<int>(round(tracked.state.baroAltitude));
+    int height_ft = static_cast<int>(round(tracked.state.baroAltitude * 3.28084f));
 
     backbuffer.setTextSize(1);
     backbuffer.setTextDatum(top_left);
@@ -229,8 +231,11 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& backbuffer, int x, int y, co
     backbuffer.setTextColor(TFT_CYAN);
     backbuffer.drawString(tracked.state.type, x + 5, y + 5 + lineHeight);
     backbuffer.setTextColor(TFT_GRAY);
-    backbuffer.drawString(String(height_m) + "m", x + 5, y + 5 + lineHeight * 2);
-    backbuffer.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight * 3);
+    if (settings.GetAltitudeInMeters()) backbuffer.drawString(String(height_m) + "m", x + 5, y + 5 + lineHeight * 2);
+    else backbuffer.drawString(String(height_ft) + "ft", x + 5, y + 5 + lineHeight * 2);
+    if (settings.GetSpeedInKmh()) backbuffer.drawString(String(speed_kmh) + "km/h", x + 5, y + 5 + lineHeight * 3);
+    else backbuffer.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight * 3);
+
 }
 
 

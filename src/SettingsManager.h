@@ -8,6 +8,8 @@ private:
     double _Lat;
     double _Lon;
     int _Rad;
+    bool _altitudeInMeters;
+    bool _speedInKmh;
     bool _displayInfoText;
     bool _displayMemoryInfo;
     bool _displayRssiInfo;
@@ -33,6 +35,12 @@ public:
 
     int GetRadius();
     void SetRadius(int rad);
+
+    bool GetAltitudeInMeters();
+    void SetAltitudeInMeters(bool inMeters);
+
+    bool GetSpeedInKmh();
+    void SetSpeedInKmh(bool inKmh);
 
     bool GetInfoTextVisible();
     void SetInfoTextVisible(bool visible);

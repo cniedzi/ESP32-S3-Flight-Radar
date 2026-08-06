@@ -53,6 +53,37 @@ static const char CONFIG_HTML[] = R"rawliteral(
                         class="flex-1 border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
                 </label>
 
+                <!-- Sekcja wyboru jednostek -->
+                <div class="flex flex-col sm:flex-row gap-4 sm:gap-5 pt-4 border-t border-green-800">
+                    <div class="flex flex-col gap-2 flex-1">
+                        <span>Altitude Unit:</span>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="alt_unit" value="ft" %ALT_FT_CHK% class="w-4 h-4 accent-green-500">
+                                <span>Feet (ft)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="alt_unit" value="m" %ALT_M_CHK% class="w-4 h-4 accent-green-500">
+                                <span>Meters (m)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 flex-1">
+                        <span>Speed Unit:</span>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="spd_unit" value="kts" %SPD_KTS_CHK% class="w-4 h-4 accent-green-500">
+                                <span>Knots (kts)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="spd_unit" value="kmh" %SPD_KMH_CHK% class="w-4 h-4 accent-green-500">
+                                <span>km/h</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- UI Options Checkboxes -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t border-green-800">
                     <label class="flex items-center gap-2 cursor-pointer">
@@ -181,6 +212,10 @@ void ConfigurationWebServer::Initialise() {
         snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLatitude()); psram_replace(localPsramBuf, maxSize, "%LATITUDE%", _buf);
         snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLongitude()); psram_replace(localPsramBuf, maxSize, "%LONGITUDE%", _buf);
         snprintf(_buf, sizeof(_buf), "%d", settings.GetRadius()); psram_replace(localPsramBuf, maxSize, "%RADIUS%", _buf);
+        psram_replace(localPsramBuf, maxSize, "%ALT_FT_CHK%",  settings.GetAltitudeInMeters() ? "" : "checked");
+        psram_replace(localPsramBuf, maxSize, "%ALT_M_CHK%",   settings.GetAltitudeInMeters() ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%SPD_KTS_CHK%", settings.GetSpeedInKmh() ? "" : "checked");
+        psram_replace(localPsramBuf, maxSize, "%SPD_KMH_CHK%", settings.GetSpeedInKmh() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%INFOTEXT%",   settings.GetInfoTextVisible() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%MEMINFO%",    settings.GetDisplayMemoryInfo() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%RSSIINFO%",   settings.GetDisplayRSSI() ? "checked" : "");
@@ -214,6 +249,8 @@ void ConfigurationWebServer::Initialise() {
         if (request->hasParam("latitude", true)) { settings.SetLatitude(request->getParam("latitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
         if (request->hasParam("longitude", true)) { settings.SetLongitude(request->getParam("longitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
         if (request->hasParam("radius", true)) { settings.SetRadius(request->getParam("radius", true)->value().toInt()); aircraftmanager.ForceUpdate(); }
+        if (request->hasParam("alt_unit", true)) { settings.SetAltitudeInMeters(request->getParam("alt_unit", true)->value() == "m"); }
+        if (request->hasParam("spd_unit", true)) { settings.SetSpeedInKmh(request->getParam("spd_unit", true)->value() == "kmh"); }
         settings.SetInfoTextVisible(request->hasParam("infotext", true));
         settings.SetDisplayMemoryInfo(request->hasParam("meminfo", true));
         settings.SetDisplayRSSI(request->hasParam("rssiinfo", true));

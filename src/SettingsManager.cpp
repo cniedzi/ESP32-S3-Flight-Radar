@@ -9,6 +9,8 @@ void SettingsManager::Initialise() {
     _Lat = preferences.getDouble("latitude", 52.010457);
     _Lon = preferences.getDouble("longitude", 20.537429);
     _Rad = preferences.getInt("radius", 60);
+    _altitudeInMeters = preferences.getBool("altInM", false); // domyślnie feet
+    _speedInKmh = preferences.getBool("spdInKmh", false);     // domyślnie knots
     _displayInfoText = preferences.getBool("infotext", true);
     _displayMemoryInfo = preferences.getBool("meminfo", true);
     _displayRssiInfo = preferences.getBool("rssiinfo", true);
@@ -50,6 +52,24 @@ void SettingsManager::SetRadius(int rad) {
 // ---------------------------------------------------------
 // USTAWIENIA INTERFEJSU (UI)
 // ---------------------------------------------------------
+
+bool SettingsManager::GetAltitudeInMeters() {
+    return _altitudeInMeters;
+}
+
+void SettingsManager::SetAltitudeInMeters(bool inMeters) {
+    _altitudeInMeters = inMeters;
+    preferences.putBool("altInM", inMeters);
+}
+
+bool SettingsManager::GetSpeedInKmh() {
+    return _speedInKmh;
+}
+
+void SettingsManager::SetSpeedInKmh(bool inKmh) {
+    _speedInKmh = inKmh;
+    preferences.putBool("spdInKmh", inKmh);
+}
 
 bool SettingsManager::GetInfoTextVisible() {
     return _displayInfoText;
