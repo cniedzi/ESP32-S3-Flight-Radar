@@ -218,6 +218,8 @@ std::pair<int, int> AircraftManager::ProjectCoordinateToScreen(float predLat, fl
 void AircraftManager::DrawAircraftInfo(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const
 {
     const int lineHeight = tft.fontHeight() + 1;
+    uint8_t currentLine = 0;
+    char buffer[32];
 
     // ADSB.lol zwraca prędkość (gs) bezpośrednio w węzłach, a wysokość (alt_baro) w stopach.
     int speed_kts = static_cast<int>(round(tracked.state.velocity / 0.514444f));
@@ -227,15 +229,39 @@ void AircraftManager::DrawAircraftInfo(LGFX_Sprite& radarSprite, int x, int y, c
 
     radarSprite.setTextSize(1);
     radarSprite.setTextDatum(top_left);
-    radarSprite.setTextColor(lgfx::color565(0, 128, 0));
-    radarSprite.drawString(tracked.state.callsign, x + 5, y + 5);
-    radarSprite.setTextColor(TFT_CYAN);
-    radarSprite.drawString(tracked.state.type, x + 5, y + 5 + lineHeight);
+
+    // Callsign (jeśli nie jest pusty)
+    if (tracked.state.callsign[0] != '\0') {
+        radarSprite.setTextColor(lgfx::color565(0, 128, 0));
+        radarSprite.drawString(tracked.state.callsign, x + 5, y + 5 + lineHeight * currentLine);
+        currentLine++;
+    }
+
+    // Type (jeśli nie jest pusty)
+    if (tracked.state.type[0] != '\0') {
+        radarSprite.setTextColor(TFT_CYAN);
+        radarSprite.drawString(tracked.state.type, x + 5, y + 5 + lineHeight * currentLine);
+        currentLine++;
+    }
+
+    // Altitude
     radarSprite.setTextColor(TFT_GRAY);
-    if (settings.GetAltitudeInMeters()) radarSprite.drawString(String(height_m) + "m", x + 5, y + 5 + lineHeight * 2);
-    else radarSprite.drawString(String(height_ft) + "ft", x + 5, y + 5 + lineHeight * 2);
-    if (settings.GetSpeedInKmh()) radarSprite.drawString(String(speed_kmh) + "km/h", x + 5, y + 5 + lineHeight * 3);
-    else radarSprite.drawString(String(speed_kts) + "kts", x + 5, y + 5 + lineHeight * 3);
+    if (settings.GetAltitudeInMeters()) {
+        snprintf(buffer, sizeof(buffer), "%dm", height_m);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%dft", height_ft);
+    }
+    radarSprite.drawString(buffer, x + 5, y + 5 + lineHeight * currentLine);
+    currentLine++;
+
+    // Speed
+    if (settings.GetSpeedInKmh()) {
+        snprintf(buffer, sizeof(buffer), "%dkm/h", speed_kmh);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%dkts", speed_kts);
+    }
+    radarSprite.drawString(buffer, x + 5, y + 5 + lineHeight * currentLine);
+    currentLine++;
 
 }
 
