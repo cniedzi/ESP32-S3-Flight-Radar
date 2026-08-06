@@ -27,7 +27,7 @@ void AircraftManager::Update()
         
         isFetching = true;
 
-        String url = "https://api.adsb.lol/v2/lat/" + String(settings.GetLatitude(), 4) + "/lon/" + String(settings.GetLongitude(), 4) + "/dist/" + String(settings.GetRadius());
+        String url = "https://api.adsb.lol/v2/lat/" + String(settings.GetLatitude(), 4) + "/lon/" + String(settings.GetLongitude(), 4) + "/dist/" + String(settings.GetRange());
 
         // 0. Alokator PSRAM dla dokumentu JSON
         PsramJsonAllocator psramAllocator;
@@ -125,7 +125,7 @@ void AircraftManager::Draw(LGFX_Sprite& radarSprite)
         radarSprite.setTextDatum(top_center);
         radarSprite.setTextColor(TFT_WHITE, TFT_MAGENTA);
         char rangeText[15];
-        snprintf(rangeText, sizeof(rangeText), " Range %dnm ", settings.GetRadius());
+        snprintf(rangeText, sizeof(rangeText), " Range %dnm ", settings.GetRange());
         radarSprite.drawString(rangeText, radarSprite.width() / 2, 0);
         radarSprite.setTextDatum(top_left);
     }
@@ -159,9 +159,9 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& radarSprite) const
     radarSprite.setTextDatum(middle_center); 
 
     // Obliczenie wartości zasięgu
-    int range1 = static_cast<int>(settings.GetRadius() / 3.0f + 0.5f);
-    int range2 = static_cast<int>((settings.GetRadius() * 2.0f) / 3.0f + 0.5f);
-    int range3 = static_cast<int>(settings.GetRadius());
+    int range1 = static_cast<int>(settings.GetRange() / 3.0f + 0.5f);
+    int range2 = static_cast<int>((settings.GetRange() * 2.0f) / 3.0f + 0.5f);
+    int range3 = static_cast<int>(settings.GetRange());
 
     // Kąt w radianach (30 stopni = PI / 6)
     constexpr float angleRad = PI / 6.0f; 
@@ -205,7 +205,7 @@ std::pair<int, int> AircraftManager::ProjectCoordinateToScreen(float predLat, fl
     const float dLonCorrected = dLon * cos(radians(settings.GetLatitude()));
 
     // Przeliczenie promienia z mil morskich (NM) na stopnie geograficzne (1 stopień $\approx$ 60 NM)
-    const float radDeg = settings.GetRadius() / 60.0f;
+    const float radDeg = settings.GetRange() / 60.0f;
 
     // Używamy dLonCorrected zamiast surowego dLon
     const float normLon = (dLonCorrected + radDeg) / (2.0f * radDeg);
@@ -316,7 +316,9 @@ char* AircraftManager::separatorTysiecy_c(char* bufNum, uint32_t n) {
 
 // Funkcja do zapisu zmiennej (Setter)
 void AircraftManager::setRad(int newRad) { 
-  if (newRad > 0 && newRad <= 250) settings.SetRadius(newRad);
-  else if (newRad > 250) settings.SetRadius(250);
-  else settings.SetRadius(10);
+  if (newRad > 0 && newRad <= 250) settings.SetRange(newRad);
+  else if (newRad > 250) settings.SetRange(250);
+  else settings.SetRange(10);
+  
+  if (radiusChangedCallback) radiusChangedCallback(settings.GetRange());
 }

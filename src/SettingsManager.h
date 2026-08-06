@@ -7,7 +7,7 @@ private:
 
     double _Lat;
     double _Lon;
-    int _Rad;
+    int _Range;
     bool _altitudeInMeters;
     bool _speedInKmh;
     bool _displayInfoText;
@@ -33,8 +33,8 @@ public:
     double GetLongitude();
     void SetLongitude(double lon);
 
-    int GetRadius();
-    void SetRadius(int rad);
+    int GetRange();
+    void SetRange(int range);
 
     bool GetAltitudeInMeters();
     void SetAltitudeInMeters(bool inMeters);

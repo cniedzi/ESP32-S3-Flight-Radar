@@ -8,6 +8,7 @@
 class ConfigurationWebServer {
 private:
     AsyncWebServer server;
+    AsyncWebSocket ws{"/ws"};
     SettingsManager& settings;
     AircraftManager& aircraftmanager;
     

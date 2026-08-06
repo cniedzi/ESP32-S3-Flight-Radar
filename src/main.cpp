@@ -253,7 +253,7 @@ void readSerialCommands() {
 
 
 void commandZoomIn() {
-  aircraftManager.setRad(settingsManager.GetRadius() - 10);
+  aircraftManager.setRad(settingsManager.GetRange() - 10);
   g_lastZoomChange = millis();
   g_zoomChangeActive = true;    
 }
@@ -261,7 +261,7 @@ void commandZoomIn() {
 
 
 void commandZoomOut() {
-  aircraftManager.setRad(settingsManager.GetRadius() + 10);
+  aircraftManager.setRad(settingsManager.GetRange() + 10);
   g_lastZoomChange = millis();
   g_zoomChangeActive = true;    
 }

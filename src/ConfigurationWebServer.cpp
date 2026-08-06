@@ -41,16 +41,20 @@ static const char CONFIG_HTML[] = R"rawliteral(
                     </label>
                 </div>
 
-                <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                    <span>Radius (in nm):</span>
-                    <input
-                        name="radius"
-                        type="number"
-                        min="10"
-                        step="10"
-                        max="250"
-                        value='%RADIUS%'
-                        class="flex-1 border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
+                <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2 my-4">
+                    <span class="whitespace-nowrap">Range (in nm):</span>
+                    <div class="flex items-center gap-3 flex-1 w-full">
+                        <input
+                            name="radius"
+                            type="range"
+                            min="10"
+                            max="250"
+                            step="10"
+                            value='%RADIUS%'
+                            oninput="document.getElementById('radiusVal').innerText = this.value"
+                            class="flex-1 accent-green-500 cursor-pointer bg-gray-800 h-2 rounded-lg">
+                        <span class="font-bold whitespace-nowrap"><span id="radiusVal">%RADIUS%</span> nm</span>
+                    </div>
                 </label>
 
                 <!-- Sekcja wyboru jednostek -->
@@ -124,6 +128,39 @@ static const char CONFIG_HTML[] = R"rawliteral(
         </fieldset>
 
         <script>
+            let ws;
+            let isDragging = false;
+            const radiusInput = document.querySelector('input[name="radius"]');
+            const radiusValSpan = document.getElementById('radiusVal');
+
+            // Wykrywanie czy użytkownik dotyka suwaka, żeby nie nadpisać mu wartości pod palcem
+            radiusInput.addEventListener('mousedown', () => { isDragging = true; });
+            radiusInput.addEventListener('touchstart', () => { isDragging = true; });
+            window.addEventListener('mouseup', () => { isDragging = false; });
+            window.addEventListener('touchend', () => { isDragging = false; });
+
+            function initWebSocket() {
+                ws = new WebSocket('ws://' + window.location.hostname + '/ws');
+                
+                ws.onmessage = function (event) {
+                    if (isDragging) return; // Ignorujemy, jeśli użytkownik aktualnie przesuwa suwak
+                    const newRadius = event.data;
+                    if (radiusInput.value !== newRadius) {
+                        radiusInput.value = newRadius;
+                        radiusValSpan.innerText = newRadius;
+                    }
+                };
+
+                ws.onclose = function () {
+                    // Spróbuj połączyć ponownie za 2 sekundy w razie rozłączenia
+                    setTimeout(initWebSocket, 2000);
+                };
+            }
+
+            // Uruchomienie połączenia po załadowaniu strony
+            initWebSocket();
+
+            // Obsługa formularza zapisywania (POST)
             document.getElementById('cfg').addEventListener('submit', function(e) {
                 e.preventDefault();
                 const encodedData = new URLSearchParams(new FormData(this));
@@ -184,6 +221,7 @@ void ConfigurationWebServer::psram_replace(char *buffer, size_t max_len, const c
 
 
 void ConfigurationWebServer::Initialise() {
+    
     // start mDNS and check result
     if (!MDNS.begin("flightradar")) {
         Serial.println("[WARN] Failed to start mDNS. Continuing without mDNS...");
@@ -211,7 +249,7 @@ void ConfigurationWebServer::Initialise() {
         char _buf[16] = {0};
         snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLatitude()); psram_replace(localPsramBuf, maxSize, "%LATITUDE%", _buf);
         snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLongitude()); psram_replace(localPsramBuf, maxSize, "%LONGITUDE%", _buf);
-        snprintf(_buf, sizeof(_buf), "%d", settings.GetRadius()); psram_replace(localPsramBuf, maxSize, "%RADIUS%", _buf);
+        snprintf(_buf, sizeof(_buf), "%d", settings.GetRange()); psram_replace(localPsramBuf, maxSize, "%RADIUS%", _buf);
         psram_replace(localPsramBuf, maxSize, "%ALT_FT_CHK%",  settings.GetAltitudeInMeters() ? "" : "checked");
         psram_replace(localPsramBuf, maxSize, "%ALT_M_CHK%",   settings.GetAltitudeInMeters() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%SPD_KTS_CHK%", settings.GetSpeedInKmh() ? "" : "checked");
@@ -248,7 +286,7 @@ void ConfigurationWebServer::Initialise() {
 
         if (request->hasParam("latitude", true)) { settings.SetLatitude(request->getParam("latitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
         if (request->hasParam("longitude", true)) { settings.SetLongitude(request->getParam("longitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
-        if (request->hasParam("radius", true)) { settings.SetRadius(request->getParam("radius", true)->value().toInt()); aircraftmanager.ForceUpdate(); }
+        if (request->hasParam("radius", true)) { settings.SetRange(request->getParam("radius", true)->value().toInt()); aircraftmanager.ForceUpdate(); }
         if (request->hasParam("alt_unit", true)) { settings.SetAltitudeInMeters(request->getParam("alt_unit", true)->value() == "m"); }
         if (request->hasParam("spd_unit", true)) { settings.SetSpeedInKmh(request->getParam("spd_unit", true)->value() == "kmh"); }
         settings.SetInfoTextVisible(request->hasParam("infotext", true));
@@ -260,5 +298,17 @@ void ConfigurationWebServer::Initialise() {
         request->send(200, "text/html", "");
     });
 
+    ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+        if (type == WS_EVT_CONNECT) {
+            // Klient się połączył – wysyłamy aktualny radius
+            client->text(String(settings.GetRange()));
+        }
+    });
+
+    aircraftmanager.setOnRadiusChanged([this](int newRadius) {
+        ws.textAll(String(newRadius));
+    });
+
+    server.addHandler(&ws);
     server.begin();
 }

@@ -8,7 +8,7 @@ void SettingsManager::Initialise() {
     preferences.begin("config", false); // Otwieramy raz na starcie w trybie odczyt/zapis
     _Lat = preferences.getDouble("latitude", 52.010457);
     _Lon = preferences.getDouble("longitude", 20.537429);
-    _Rad = preferences.getInt("radius", 60);
+    _Range = preferences.getInt("range", 60);
     _altitudeInMeters = preferences.getBool("altInM", false); // domyślnie feet
     _speedInKmh = preferences.getBool("spdInKmh", false);     // domyślnie knots
     _displayInfoText = preferences.getBool("infotext", true);
@@ -40,13 +40,13 @@ void SettingsManager::SetLongitude(double lon) {
     preferences.putDouble("longitude", lon);
 }
 
-int SettingsManager::GetRadius() {
-    return _Rad;
+int SettingsManager::GetRange() {
+    return _Range;
 }
 
-void SettingsManager::SetRadius(int rad) {
-    _Rad = rad;
-    preferences.putInt("radius", rad);
+void SettingsManager::SetRange(int range) {
+    _Range = range;
+    preferences.putInt("range", range);
 }
 
 // ---------------------------------------------------------
