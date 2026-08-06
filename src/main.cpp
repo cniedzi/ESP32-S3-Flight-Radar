@@ -22,7 +22,7 @@
 #define TOUCH_ZOOM_IN TOUCH_PAD_NUM4
 #define TOUCH_ZOOM_OUT TOUCH_PAD_NUM5
 #define AIRPORT_COLOR 0x2bf8
-#define CONFIG_PORTAL_TIMEOUT 180
+#define CONFIG_PORTAL_TIMEOUT 180 //s
 
 
 void drawHome(LGFX_Sprite& radarSprite);
@@ -64,7 +64,7 @@ void setup()
   touch_pad_config(TOUCH_ZOOM_IN);
   touch_pad_config(TOUCH_ZOOM_OUT);
   touch_filter_config_t filter_info = {
-      .mode = TOUCH_PAD_FILTER_IIR_16, // Mocny filtr kroczący
+      .mode = TOUCH_PAD_FILTER_IIR_16,
       .debounce_cnt = 1,
       .noise_thr = 0,
       .jitter_step = 4,
@@ -72,7 +72,7 @@ void setup()
   };
   touch_pad_filter_set_config(&filter_info);
   touch_pad_filter_enable();
-  touch_pad_fsm_start(); //Uruchomienie ciągłego pomiaru w tle
+  touch_pad_fsm_start();
 
   WiFi.begin();
   WiFiManager wm;
@@ -117,23 +117,23 @@ void setup()
   aircraftManager.Initialise();
 
   xTaskCreatePinnedToCore(
-      touchTask,                // Nazwa naszej funkcji
-      "TouchTask",              // Nazwa systemowa do debugowania
-      2048,                     // Pamięć RAM dla zadania (2KB wystarczy z zapasem)
-      NULL,                     // Brak parametrów startowych
-      1,                        // Priorytet (1 = niski)
-      NULL,                     // Uchwyt zadania (nie potrzebujemy)
-      0                         // Odpalamy na Rdzeniu 0 (odciążamy główny Rdzeń 1)
+      touchTask,
+      "TouchTask",
+      2048,
+      NULL,
+      1,
+      NULL,
+      0
   );
 
   xTaskCreatePinnedToCore(
-      aircraftsUpdateTask,      // Nazwa funkcji
-      "AircraftsUpdateTask",    // Nazwa systemowa
-      8192,                     // Sieć i JSON zżerają sporo pamięci! Dajmy tu solidne 8KB
+      aircraftsUpdateTask,
+      "AircraftsUpdateTask",
+      8192,
       NULL,
-      1,                        // Niski priorytet
+      1,
       NULL,
-      0                         // Odpalamy na Rdzeniu 0 (obok zadania Touch)
+      0
   );
 
 }
@@ -146,11 +146,11 @@ void loop()
   readSerialCommands();
 
   if (g_requestZoomIn) {
-      g_requestZoomIn = false; // Natychmiastowe zrzucenie flagi
+      g_requestZoomIn = false;
       commandZoomIn();
   }
   else if (g_requestZoomOut) {
-      g_requestZoomOut = false; // Natychmiastowe zrzucenie flagi
+      g_requestZoomOut = false;
       commandZoomOut();
   }
 
@@ -182,23 +182,13 @@ void drawHome(LGFX_Sprite& radarSprite)
 
 
 void drawAirports(LGFX_Sprite& radarSprite) {
-    // Iterujemy po każdym lotnisku w tablicy
     for (const auto& airport : airportList) {
-        // Przeliczenie współrzędnych z danego lotniska na pozycję (X, Y) na ekranie
         auto [x, y] = aircraftManager.ProjectCoordinateToScreen(airport.latitude, airport.longitude);
         
-        // Rysowanie kropki (znacznika) lotniska
         radarSprite.drawCircle(x, y, 3, AIRPORT_COLOR);
-
-        // Ustawienie koloru tekstu (biały) i tła (0x2bf8, żeby ładnie współgrało z kropką)
         radarSprite.setTextColor(TFT_WHITE, AIRPORT_COLOR);
-
-        // Przygotowanie etykiety ze spacjami na obrzeżach (np. " EPWA ") 
-        // Używamy bufora char zamiast obiektu String dla maksymalnej wydajności RAM!
         char label[9];
         snprintf(label, sizeof(label), " %s ", airport.icao);
-
-        // Rysowanie nazwy obok kropki (przesunięcie w prawo i do góry)
         radarSprite.drawString(label, x + 10, y - 10);
     }
 }
@@ -212,10 +202,9 @@ void drawPolandMap(LGFX_Sprite& radarSprite, uint16_t color) {
     const int polandPointsCount = sizeof(polandBorder) / sizeof(polandBorder[0]);
 
     for (int i = 0; i < polandPointsCount; ++i) {
-        // Przeliczenie współrzędnych granicy na piksele ekranu
         auto [x, y] = aircraftManager.ProjectCoordinateToScreen(polandBorder[i].lat, polandBorder[i].lon);
         if (i > 0) {
-            radarSprite.drawLine(prevX, prevY, x, y, color); // Rysowanie odcinka granicy między poprzednim a obecnym punktem
+            radarSprite.drawLine(prevX, prevY, x, y, color);
         }
         prevX = x;
         prevY = y;
@@ -225,26 +214,20 @@ void drawPolandMap(LGFX_Sprite& radarSprite, uint16_t color) {
 
 
 void readSerialCommands() {
-    // Sprawdzamy, czy w buforze Serial są jakieś nieprzeczytane dane
     while (Serial.available() > 0) {
-        // Odczytujemy pojedynczy znak
         char incomingChar = Serial.read();
 
-        // Reagujemy w zależności od tego, jaki to znak
         switch (incomingChar) {
             case '=':
             case '+':
-                //Serial.println("Otrzymano PLUS (+)");
                 commandZoomOut();
                 break;
                 
             case '-':
-                //Serial.println("Otrzymano MINUS (-)");
                 commandZoomIn();
                 break;
                 
             default:
-                // Ignorujemy wszelkie inne znaki (litery, spacje, entery)
                 break;
         }
     }
@@ -269,10 +252,8 @@ void commandZoomOut() {
 
 
 void touchTask(void *pvParameters) {
-    // Te zmienne żyją teraz lokalnie, tylko wewnątrz tego wątku
     unsigned long localLastTouchTime = 0;
     
-    // Nieskończona pętla zadania RTOS
     for(;;) {
         if (millis() - localLastTouchTime >= TOUCH_DEBOUNCE_MS) {
             uint32_t touchInValue = 0;
@@ -296,9 +277,7 @@ void touchTask(void *pvParameters) {
 
 void aircraftsUpdateTask(void *pvParameters) {
     for(;;) {
-        // Zabezpieczenie przed pobieraniem danych zaraz po kliknięciu Zoom
         if (!g_zoomChangeActive) {
-            // Wewnątrz Update() samoloty będą już zabezpieczone Mutexem!
             aircraftManager.Update();
         }
         vTaskDelay(pdMS_TO_TICKS(10)); 
