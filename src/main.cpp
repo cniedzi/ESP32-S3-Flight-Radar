@@ -51,8 +51,9 @@ touch_channel_handle_t g_touchChanZoomOut = NULL;
 LGFX tft;
 LGFX_Sprite radarSprite(&tft);
 HttpRequestManager http;
+OpenSkyAuthTokenHandler authHandler(http);
 SettingsManager settingsManager;
-AircraftManager aircraftManager(settingsManager, http, tft);
+AircraftManager aircraftManager(settingsManager, http, authHandler, tft);
 ConfigurationWebServer configServer(settingsManager, aircraftManager);
 
 
@@ -229,7 +230,7 @@ void readSerialCommands() {
 
 
 void commandZoomIn() {
-  aircraftManager.setRad(settingsManager.GetRange() - 10);
+  aircraftManager.setRange(settingsManager.GetRange() - 10);
   g_lastZoomChange = millis();
   g_zoomChangeActive = true;    
 }
@@ -237,7 +238,7 @@ void commandZoomIn() {
 
 
 void commandZoomOut() {
-  aircraftManager.setRad(settingsManager.GetRange() + 10);
+  aircraftManager.setRange(settingsManager.GetRange() + 10);
   g_lastZoomChange = millis();
   g_zoomChangeActive = true;    
 }

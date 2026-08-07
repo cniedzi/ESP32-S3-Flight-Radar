@@ -20,5 +20,7 @@ public:
     ~HttpRequestManager() = default;
 
     // Bezpieczna metoda GET parsująca strumień prosto do JSON
-    [[nodiscard]] HttpResult GetJson(const String& url, JsonDocument& jsonDoc);
+    [[nodiscard]] HttpResult GetJson(const String& url, JsonDocument& jsonDoc, const std::vector<std::pair<String, String>>& headers = {});
+    [[nodiscard]] HttpResult Post(const String& url, const String& body = "", const std::vector<std::pair<String, String>>& headers = {});
+    
 };

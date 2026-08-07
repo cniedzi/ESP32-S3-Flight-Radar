@@ -9,6 +9,7 @@ void SettingsManager::Initialise() {
     _Lat = preferences.getDouble("latitude", 52.010457);
     _Lon = preferences.getDouble("longitude", 20.537429);
     _Range = preferences.getInt("range", 60);
+    _platform = static_cast<FlightPlatform>(preferences.getUChar("platform", static_cast<uint8_t>(FlightPlatform::ADSB_LOL)));
     _altitudeInMeters = preferences.getBool("altInM", false); // domyślnie feet
     _speedInKmh = preferences.getBool("spdInKmh", false);     // domyślnie knots
     _displayInfoText = preferences.getBool("infotext", true);
@@ -16,13 +17,19 @@ void SettingsManager::Initialise() {
     _displayRssiInfo = preferences.getBool("rssiinfo", true);
     _displayRange = preferences.getBool("rangeinfo", true);
     _displayAircraftsUpdateIndicator = preferences.getBool("updateinfo", true);
+
+    // OPEN SKY
+    size_t lenCid = preferences.getString("os_cid", _openSkyClientId, sizeof(_openSkyClientId));
+    if (lenCid == 0) strlcpy(_openSkyClientId, "jacek33wawa-api-client", sizeof(_openSkyClientId)); //QQQ
+    size_t lenCsec = preferences.getString("os_csec", _openSkyClientSecret, sizeof(_openSkyClientSecret));
+    if (lenCsec == 0) strlcpy(_openSkyClientSecret, "tqupaFrqKKXKGDurCqqDpnytQfKBaIxe", sizeof(_openSkyClientSecret)); //QQQ
 }
 
 // ---------------------------------------------------------
 // WSPÓŁRZĘDNE I ZASIĘG
 // ---------------------------------------------------------
 
-double SettingsManager::GetLatitude() {
+double SettingsManager::GetLatitude() const {
     return _Lat;
 }
 
@@ -31,7 +38,7 @@ void SettingsManager::SetLatitude(double lat) {
     preferences.putDouble("latitude", lat);
 }
 
-double SettingsManager::GetLongitude() {
+double SettingsManager::GetLongitude() const {
     return _Lon;
 }
 
@@ -40,7 +47,7 @@ void SettingsManager::SetLongitude(double lon) {
     preferences.putDouble("longitude", lon);
 }
 
-int SettingsManager::GetRange() {
+int SettingsManager::GetRange() const {
     return _Range;
 }
 
@@ -50,10 +57,23 @@ void SettingsManager::SetRange(int range) {
 }
 
 // ---------------------------------------------------------
+// PLATFORMA
+// ---------------------------------------------------------
+
+FlightPlatform SettingsManager::GetPlatform() const {
+    return _platform;
+}
+
+void SettingsManager::SetPlatform(FlightPlatform platform) {
+    _platform = platform;
+    preferences.putUChar("platform", static_cast<uint8_t>(platform));
+}
+
+// ---------------------------------------------------------
 // USTAWIENIA INTERFEJSU (UI)
 // ---------------------------------------------------------
 
-bool SettingsManager::GetAltitudeInMeters() {
+bool SettingsManager::GetAltitudeInMeters() const {
     return _altitudeInMeters;
 }
 
@@ -62,7 +82,7 @@ void SettingsManager::SetAltitudeInMeters(bool inMeters) {
     preferences.putBool("altInM", inMeters);
 }
 
-bool SettingsManager::GetSpeedInKmh() {
+bool SettingsManager::GetSpeedInKmh() const {
     return _speedInKmh;
 }
 
@@ -71,7 +91,7 @@ void SettingsManager::SetSpeedInKmh(bool inKmh) {
     preferences.putBool("spdInKmh", inKmh);
 }
 
-bool SettingsManager::GetInfoTextVisible() {
+bool SettingsManager::GetInfoTextVisible() const {
     return _displayInfoText;
 }
 
@@ -80,7 +100,7 @@ void SettingsManager::SetInfoTextVisible(bool visible) {
     preferences.putBool("infotext", visible);
 }
 
-bool SettingsManager::GetDisplayMemoryInfo() {
+bool SettingsManager::GetDisplayMemoryInfo() const {
     return _displayMemoryInfo;
 }
 
@@ -89,7 +109,7 @@ void SettingsManager::SetDisplayMemoryInfo(bool visible) {
     preferences.putBool("meminfo", visible);
 }
 
-bool SettingsManager::GetDisplayRSSI() {
+bool SettingsManager::GetDisplayRSSI() const {
     return _displayRssiInfo;
 }
 
@@ -98,7 +118,7 @@ void SettingsManager::SetDisplayRSSI(bool visible) {
     preferences.putBool("rssiinfo", visible);
 }
 
-bool SettingsManager::GetDisplayRange() {
+bool SettingsManager::GetDisplayRange() const {
     return _displayRange;
 }
 
@@ -107,11 +127,33 @@ void SettingsManager::SetDisplayRange(bool visible) {
     preferences.putBool("rangeinfo", visible);
 }
 
-bool SettingsManager::GetDisplayAircraftsUpdateIndicator() {
+bool SettingsManager::GetDisplayAircraftsUpdateIndicator() const {
     return _displayAircraftsUpdateIndicator;
 }
 
 void SettingsManager::SetDisplayAircraftsUpdateIndicator(bool visible) {
     _displayAircraftsUpdateIndicator = visible;
     preferences.putBool("updateinfo", visible);
+}
+
+// ---------------------------------------------------------
+// OPEN SKY
+// ---------------------------------------------------------
+
+const char* SettingsManager::GetOpenSkyClientId() const {
+    return _openSkyClientId;
+}
+
+void SettingsManager::SetOpenSkyClientId(const char* clientId) {
+    strlcpy(_openSkyClientId, clientId, sizeof(_openSkyClientId));
+    preferences.putString("os_cid", clientId);
+}
+
+const char* SettingsManager::GetOpenSkyClientSecret() const {
+    return _openSkyClientSecret;
+}
+
+void SettingsManager::SetOpenSkyClientSecret(const char* clientSecret) {
+    strlcpy(_openSkyClientSecret, clientSecret, sizeof(_openSkyClientSecret));
+    preferences.putString("os_csec", clientSecret);
 }

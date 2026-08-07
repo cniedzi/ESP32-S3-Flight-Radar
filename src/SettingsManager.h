@@ -1,13 +1,20 @@
 #pragma once
 #include <Preferences.h>
 
+enum class FlightPlatform {
+        ADSB_LOL,
+        OpenSky
+};
+
 class SettingsManager {
 private:
+    
     Preferences preferences;
-
+    
     double _Lat;
     double _Lon;
     int _Range;
+    FlightPlatform _platform;
     bool _altitudeInMeters;
     bool _speedInKmh;
     bool _displayInfoText;
@@ -15,6 +22,10 @@ private:
     bool _displayRssiInfo;
     bool _displayRange;
     bool _displayAircraftsUpdateIndicator;
+    char _openSkyClientId[64];
+    char _openSkyClientSecret[64];
+
+
 
 public:
     SettingsManager();
@@ -26,34 +37,44 @@ public:
     // GETTERY I SETTERY
     // ==========================================
 
-    double GetLatitude();
+    double GetLatitude() const;
     void SetLatitude(double lat);
 
-    double GetLongitude();
+    double GetLongitude() const;
     void SetLongitude(double lon);
 
-    int GetRange();
+    int GetRange() const;
     void SetRange(int range);
 
-    bool GetAltitudeInMeters();
+    FlightPlatform GetPlatform() const;
+    void SetPlatform(FlightPlatform platform);
+
+    bool GetAltitudeInMeters() const;
     void SetAltitudeInMeters(bool inMeters);
 
-    bool GetSpeedInKmh();
+    bool GetSpeedInKmh() const;
     void SetSpeedInKmh(bool inKmh);
 
-    bool GetInfoTextVisible();
+    bool GetInfoTextVisible() const;
     void SetInfoTextVisible(bool visible);
 
-    bool GetDisplayMemoryInfo();
+    bool GetDisplayMemoryInfo() const;
     void SetDisplayMemoryInfo(bool visible);
 
-    bool GetDisplayRSSI();
+    bool GetDisplayRSSI() const;
     void SetDisplayRSSI(bool visible);
 
-    bool GetDisplayRange();
+    bool GetDisplayRange() const;
     void SetDisplayRange(bool visible);
 
-    bool GetDisplayAircraftsUpdateIndicator();
+    bool GetDisplayAircraftsUpdateIndicator() const;
     void SetDisplayAircraftsUpdateIndicator(bool visible);
+
+    // Gettery i settery dla OpenSky
+    const char* GetOpenSkyClientId() const;
+    void SetOpenSkyClientId(const char* clientId);
+
+    const char* GetOpenSkyClientSecret() const;
+    void SetOpenSkyClientSecret(const char* clientSecret);
         
 };

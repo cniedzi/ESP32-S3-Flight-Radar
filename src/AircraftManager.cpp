@@ -7,25 +7,56 @@
 #define RADAR_SIZE DISPLAY_WIDTH
 #define DISPLAY_WIDTH_DIV_2 DISPLAY_WIDTH / 2
 #define DISPLAY_HEIGHT_DIV_2 DISPLAY_HEIGHT / 2
-#define FETCH_INTERVAL 5000 //ms
+#define FETCH_INTERVAL_ADSB 5000 //ms
 
 
-void AircraftManager::Initialise()
-{
-}
+void AircraftManager::Initialise() {}
 
 
-
+// przy przełączeniu platformy trzeba wyczyścić wektor headers QQQ
 void AircraftManager::Update()
 {
     unsigned long now = millis();
+    FlightPlatform platform = settings.GetPlatform();
+    unsigned long fetchInterval = FETCH_INTERVAL_ADSB;
+
+    String token = "";
+    if (platform == FlightPlatform::OpenSky) {
+        constexpr int MS_PER_DAY = 24 * 60 * 60 * 1000;
+        constexpr int ANONYMOUS_TOKENS_PER_DAY = 400;
+        constexpr int AUTHED_TOKENS_PER_DAY = 4000;
+        constexpr int TOKEN_BUFFER = 3;
+        int dailyRequestBudget = ANONYMOUS_TOKENS_PER_DAY - TOKEN_BUFFER;
+        // Sprawdzamy token dla OpenSky
+        token = authHandler.GetValidToken(settings.GetOpenSkyClientId(), settings.GetOpenSkyClientSecret());
+        if (!token.isEmpty()) {
+            dailyRequestBudget = AUTHED_TOKENS_PER_DAY - TOKEN_BUFFER;
+        }
+        fetchInterval = MS_PER_DAY / dailyRequestBudget; // Wyliczony budżet tylko dla OpenSky
+    }
 
     // Cykl pobierania danych
-    if (now - lastFetch >= FETCH_INTERVAL) {
-        
+    if (now - lastFetch >= fetchInterval) {
+        char url[256];
         isFetching = true;
+        std::vector<std::pair<String, String>> headers = {};
 
-        String url = "https://api.adsb.lol/v2/lat/" + String(settings.GetLatitude(), 4) + "/lon/" + String(settings.GetLongitude(), 4) + "/dist/" + String(settings.GetRange());
+        if (platform == FlightPlatform::ADSB_LOL) {
+            snprintf(url, sizeof(url), "https://api.adsb.lol/v2/lat/%.4f/lon/%.4f/dist/%d", settings.GetLatitude(), settings.GetLongitude(), settings.GetRange());
+        } else {
+            if (!token.isEmpty()) headers.push_back({ "Authorization", "Bearer " + token });
+
+            // OpenSky wymaga prostokąta (bounding box) wyliczonego z pozycji i zasięgu w km
+            float lat = settings.GetLatitude();
+            float lon = settings.GetLongitude();
+            int rangeNm = settings.GetRange();
+            float rangeKm = rangeNm * 1.852f; // Przeliczamy mile morskie na kilometry (1 nm = 1.852 km)
+            float latDelta = rangeKm / 111.0f;
+            float lonDelta = rangeKm / (111.0f * cos(lat * 0.01745329251f));
+
+            snprintf(url, sizeof(url), "https://opensky-network.org/api/states/all?lamin=%.4f&lamax=%.4f&lomin=%.4f&lomax=%.4f",
+                     lat - latDelta, lat + latDelta, lon - lonDelta, lon + lonDelta);
+        }
 
         // Alokator PSRAM dla dokumentu JSON
         PsramJsonAllocator psramAllocator;
@@ -33,7 +64,7 @@ void AircraftManager::Update()
         // Dokument ląduje w całości w PSRAM
         JsonDocument doc(&psramAllocator);
 
-        HttpResult result = http.GetJson(url, doc);
+        HttpResult result = http.GetJson(url, doc, headers);
 
         if (!result.success) {
             Serial.print("[WARN] API/JSON Error: ");
@@ -46,14 +77,28 @@ void AircraftManager::Update()
         std::unordered_set<std::string> fetchedIcaos;
 
         // Pobieramy tablicę JSON bezpośrednio z dokumentu
-        JsonArray array = doc["ac"].as<JsonArray>();
+        JsonArray array;
+        if (platform == FlightPlatform::ADSB_LOL) {
+            array = doc["ac"].as<JsonArray>();
+        }
+        else {
+            if (doc["states"].isNull()) {
+                Serial.println("[INFO] OpenSky: Brak samolotów w zadanym obszarze.");
+                isFetching = false;
+                lastFetch = millis();
+                return;
+            }
+            array = doc["states"].as<JsonArray>();
+        }
 
         {
             std::lock_guard<std::mutex> lock(_dataMutex);
             // Bezpośrednia pętla: JSON -> pojedynczy Aircraft -> trackedAircraft
-            for (JsonObject item : array) {
+            for (JsonVariant item : array) {
                 // Parsujemy pojedynczy element w locie
-                Aircraft ac = JsonParser::Parse<Aircraft>(item);
+                Aircraft ac;
+                if (platform == FlightPlatform::ADSB_LOL) ac = JsonParser::ParseADSB(item);
+                else ac = JsonParser::ParseOpenSky(item);
 
                 // Jawnie konwertujemy String na std::string przed wrzuceniem do setu
                 fetchedIcaos.insert(ac.icao24);
@@ -72,8 +117,7 @@ void AircraftManager::Update()
 
             // Usunięcie samolotów, których już nie ma w nowym strumieniu danych
             for (auto it = trackedAircraft.begin(); it != trackedAircraft.end(); ) {
-                // Konwertujemy klucz z mapy (String) na std::string do wyszukiwania w secie
-                if (fetchedIcaos.find(std::string(it->first.c_str())) == fetchedIcaos.end()) {
+                if (fetchedIcaos.find(it->first) == fetchedIcaos.end()) {
                     it = trackedAircraft.erase(it);
                 }
                 else {
@@ -162,7 +206,7 @@ void AircraftManager::DrawRadarCircles(LGFX_Sprite& radarSprite) const
     int range3 = static_cast<int>(settings.GetRange());
 
     // Kąt w radianach
-    constexpr float angleRad = PI / 6.0f; 
+    constexpr float angleRad = PI / 5.5f; 
     float sinA = sin(angleRad);
     float cosA = cos(angleRad);
 
@@ -334,7 +378,7 @@ char* AircraftManager::separatorTysiecy_c(char* bufNum, uint32_t n) {
 
 
 
-void AircraftManager::setRad(int newRad) { 
+void AircraftManager::setRange(int newRad) { 
   if (newRad > 0 && newRad <= 250) settings.SetRange(newRad);
   else if (newRad > 250) settings.SetRange(250);
   else settings.SetRange(10);

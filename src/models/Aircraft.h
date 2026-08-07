@@ -19,6 +19,6 @@ struct Aircraft {
 };
 
 namespace JsonParser {
-    template<>
-    Aircraft Parse<Aircraft>(const JsonVariant& state);
+    Aircraft ParseADSB(const JsonVariant& state);
+    Aircraft ParseOpenSky(const JsonVariant& state);
 }

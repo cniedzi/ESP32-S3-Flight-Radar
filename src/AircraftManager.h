@@ -6,6 +6,7 @@
 
 #include "models/TrackedAircraft.h"
 #include "SettingsManager.h"
+#include "OpenSkyAuthTokenHandler.h"
 #include "HttpRequestManager.h"
 #include "LGFX.h"
 #include "Config.h"
@@ -30,6 +31,7 @@ private:
     unsigned long lastFetch = 999999;
 
     SettingsManager& settings;
+    OpenSkyAuthTokenHandler& authHandler;
     HttpRequestManager& http;
     LGFX& tft;
 
@@ -40,8 +42,8 @@ private:
     
 
 public:
-    AircraftManager(SettingsManager& settingsManager, HttpRequestManager& httpManager, LGFX& tftGfx)
-        : settings(settingsManager), http(httpManager), tft(tftGfx)
+    AircraftManager(SettingsManager& settingsManager, HttpRequestManager& httpManager, OpenSkyAuthTokenHandler& authHandlerManager, LGFX& tftGfx)
+        : settings(settingsManager), authHandler(authHandlerManager), http(httpManager), tft(tftGfx)
     {
     }
     ~AircraftManager() = default;
@@ -52,6 +54,6 @@ public:
     void Draw(LGFX_Sprite& radarSprite);
     std::pair<int, int> ProjectCoordinateToScreen(float predLat, float predLon) const;
     void setOnRadiusChanged(std::function<void(int)> cb) { radiusChangedCallback = cb; }
-    void setRad(int newRad);
+    void setRange(int newRad);
     
 };
