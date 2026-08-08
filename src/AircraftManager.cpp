@@ -77,10 +77,15 @@ void AircraftManager::Update()
 
         if (!result.success) {
             Serial.print("[WARN] API/JSON Error: ");
-            Serial.println(result.errorMessage);
+            Serial.print(result.errorMessage); Serial.print("--->>>"); Serial.println(result.statusCode);
             isFetching = false;
+            if (platform == FlightPlatform::OpenSky && result.statusCode == 429) OpenSkyQuotaExceeded = true;
             return;
         }
+        else {
+            if (platform == FlightPlatform::OpenSky) OpenSkyQuotaExceeded = false; 
+        }
+
 
         // Zbiór pomocniczy do śledzenia aktywnych ICAO w tej paczce (do usuwania "duchów")
         std::unordered_set<std::string> fetchedIcaos;

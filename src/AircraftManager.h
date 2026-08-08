@@ -41,6 +41,7 @@ public:
 
     std::atomic<bool> isFetching{false};
     std::atomic<bool> isOpenSkyAuthenticated{false};
+    std::atomic<bool> OpenSkyQuotaExceeded{false};
 
 
     void Initialise();

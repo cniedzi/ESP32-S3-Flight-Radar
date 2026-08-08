@@ -175,18 +175,29 @@ void displayUIElements(LGFX_Sprite& radarSprite) {
         int x = 360;
         int y = 0;
         int16_t color = 0xa2e3;
-        char text[9];
+        char text[10];
         if (settingsManager.GetPlatform() == FlightPlatform::ADSB_LOL) strlcpy(text, "ADSB.lol", sizeof(text));
         else {
             strlcpy(text, "OpenSky", sizeof(text));
-            if (aircraftManager.isOpenSkyAuthenticated.load()) color = 0xa2e3;
-            else color = TFT_ORANGE;
+            if (aircraftManager.isOpenSkyAuthenticated.load()) color = 0x0315;
+            else {
+                if (!aircraftManager.OpenSkyQuotaExceeded) color = 0xf3c4;
+                else {
+                    color = TFT_RED;
+                }
+            }
         }
         radarSprite.setTextColor(TFT_WHITE);
         int length = radarSprite.textWidth(text) + 11;
         radarSprite.fillRoundRect(x - length / 2, y, length, radarSprite.fontHeight() + 3, 4, color);
         radarSprite.setTextDatum(middle_center);
         radarSprite.drawString(text, x + 1, y + radarSprite.fontHeight() / 2 + 2);
+        if (settingsManager.GetPlatform() == FlightPlatform::OpenSky && !aircraftManager.isOpenSkyAuthenticated.load()) {
+            if (aircraftManager.OpenSkyQuotaExceeded) {
+                radarSprite.fillCircle(x + length / 2 + 10, y + radarSprite.fontHeight() / 2 + 1, radarSprite.fontHeight() / 2 + 1, TFT_RED);
+                radarSprite.drawString("!", x + length / 2 + 11, y + 6);
+            }
+        }
     }
 
     // Memory parameters
