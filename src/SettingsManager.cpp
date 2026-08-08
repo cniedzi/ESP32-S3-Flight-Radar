@@ -16,13 +16,14 @@ void SettingsManager::Initialise() {
     _displayMemoryInfo = preferences.getBool("meminfo", true);
     _displayRssiInfo = preferences.getBool("rssiinfo", true);
     _displayRange = preferences.getBool("rangeinfo", true);
+    _displayPlatform = preferences.getBool("platforminfo", true);
     _displayAircraftsUpdateIndicator = preferences.getBool("updateinfo", true);
 
     // OPEN SKY
     size_t lenCid = preferences.getString("os_cid", _openSkyClientId, sizeof(_openSkyClientId));
-    if (lenCid == 0) strlcpy(_openSkyClientId, "jacek33wawa-api-client", sizeof(_openSkyClientId)); //QQQ
+    if (lenCid == 0) strlcpy(_openSkyClientId, "", sizeof(_openSkyClientId));
     size_t lenCsec = preferences.getString("os_csec", _openSkyClientSecret, sizeof(_openSkyClientSecret));
-    if (lenCsec == 0) strlcpy(_openSkyClientSecret, "tqupaFrqKKXKGDurCqqDpnytQfKBaIxe", sizeof(_openSkyClientSecret)); //QQQ
+    if (lenCsec == 0) strlcpy(_openSkyClientSecret, "", sizeof(_openSkyClientSecret));
 }
 
 // ---------------------------------------------------------
@@ -125,6 +126,16 @@ bool SettingsManager::GetDisplayRange() const {
 void SettingsManager::SetDisplayRange(bool visible) {
     _displayRange = visible;
     preferences.putBool("rangeinfo", visible);
+}
+
+bool SettingsManager::GetDisplayPlatform() const {
+    return _displayPlatform;
+}
+
+void SettingsManager::SetDisplayPlatform(bool visible) {
+    _displayPlatform = visible;
+    Serial.println(_displayPlatform);
+    preferences.putBool("platforminfo", visible);
 }
 
 bool SettingsManager::GetDisplayAircraftsUpdateIndicator() const {

@@ -21,6 +21,7 @@ private:
     bool _displayMemoryInfo;
     bool _displayRssiInfo;
     bool _displayRange;
+    bool _displayPlatform;
     bool _displayAircraftsUpdateIndicator;
     char _openSkyClientId[64];
     char _openSkyClientSecret[64];
@@ -66,6 +67,9 @@ public:
 
     bool GetDisplayRange() const;
     void SetDisplayRange(bool visible);
+
+    bool GetDisplayPlatform() const;
+    void SetDisplayPlatform(bool visible);
 
     bool GetDisplayAircraftsUpdateIndicator() const;
     void SetDisplayAircraftsUpdateIndicator(bool visible);

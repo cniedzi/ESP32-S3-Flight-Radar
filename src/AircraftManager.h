@@ -40,6 +40,8 @@ public:
     ~AircraftManager() = default;
 
     std::atomic<bool> isFetching{false};
+    std::atomic<bool> isOpenSkyAuthenticated{false};
+
 
     void Initialise();
     void Update();

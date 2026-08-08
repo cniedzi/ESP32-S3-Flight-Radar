@@ -45,7 +45,7 @@ static const char CONFIG_HTML[] = R"rawliteral(
                     <span class="whitespace-nowrap">Range (in nm):</span>
                     <div class="flex items-center gap-3 flex-1 w-full">
                         <input
-                            name="radius"
+                            name="range"
                             type="range"
                             min="10"
                             max="250"
@@ -56,6 +56,36 @@ static const char CONFIG_HTML[] = R"rawliteral(
                         <span class="font-bold whitespace-nowrap"><span id="radiusVal">%RADIUS%</span> nm</span>
                     </div>
                 </label>
+
+                <!-- Sekcja wyboru platformy -->
+                <div class="flex flex-col gap-2 pt-4 border-t border-green-800">
+                    <span>Data Platform:</span>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="platform" value="0" %PLATFORM_ADSB_CHK% class="w-4 h-4 accent-green-500" onchange="toggleOpenSkyFields()">
+                            <span>ADSB.lol</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="platform" value="1" %PLATFORM_OPENSKY_CHK% class="w-4 h-4 accent-green-500" onchange="toggleOpenSkyFields()">
+                            <span>OpenSky</span>
+                        </label>
+                    </div>
+
+                    <!-- OpenSky Credentials (ukrywane) -->
+                    <div id="opensky_credentials" class="hidden mt-2">
+                        <div class="flex flex-col gap-3">
+                            <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-1">
+                                <span class="sm:w-32">Client ID:</span>
+                                <input name="os_client_id" type="text" value='%OS_CLIENT_ID%' class="border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
+                            </label>
+                            <label class="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-1">
+                                <span class="sm:w-32">Client Secret:</span>
+                                <input name="os_client_secret" type="password" value='%OS_CLIENT_SECRET%' class="border border-green-500 bg-gray-900 w-full px-3 py-2 text-lg sm:text-base sm:px-1 sm:py-0">
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
 
                 <!-- Sekcja wyboru jednostek -->
                 <div class="flex flex-col sm:flex-row gap-4 sm:gap-5 pt-4 border-t border-green-800">
@@ -111,6 +141,11 @@ static const char CONFIG_HTML[] = R"rawliteral(
                     </label>
 
                     <label class="flex items-center gap-2 cursor-pointer">
+                        <input name="platforminfo" type="checkbox" %PLATFORMINFO% class="w-4 h-4 accent-green-500">
+                        <span>Show data platform name</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 cursor-pointer">
                         <input name="updateinfo" type="checkbox" %UPDATEINFO% class="w-4 h-4 accent-green-500">
                         <span>Show aircrafts update indicator</span>
                     </label>
@@ -130,7 +165,7 @@ static const char CONFIG_HTML[] = R"rawliteral(
         <script>
             let ws;
             let isDragging = false;
-            const radiusInput = document.querySelector('input[name="radius"]');
+            const radiusInput = document.querySelector('input[name="range"]');
             const radiusValSpan = document.getElementById('radiusVal');
 
             // Wykrywanie czy użytkownik dotyka suwaka, żeby nie nadpisać mu wartości pod palcem
@@ -180,6 +215,20 @@ static const char CONFIG_HTML[] = R"rawliteral(
                     }, 1000);
                 });
             });
+
+            function toggleOpenSkyFields() {
+                const isOpenSky = document.querySelector('input[name="platform"][value="1"]').checked;
+                const osFields = document.getElementById('opensky_credentials');
+                if (isOpenSky) {
+                    osFields.classList.remove('hidden');
+                } else {
+                    osFields.classList.add('hidden');
+                }
+            }
+
+            // Wywołanie przy starcie, by odpowiednio pokazać/ukryć pola podczas ładowania strony
+            toggleOpenSkyFields();
+
         </script>
     </body>
 </html>
@@ -248,6 +297,10 @@ void ConfigurationWebServer::Initialise() {
         snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLatitude()); psram_replace(localPsramBuf, maxSize, "%LATITUDE%", _buf);
         snprintf(_buf, sizeof(_buf), "%.6f", settings.GetLongitude()); psram_replace(localPsramBuf, maxSize, "%LONGITUDE%", _buf);
         snprintf(_buf, sizeof(_buf), "%d", settings.GetRange()); psram_replace(localPsramBuf, maxSize, "%RADIUS%", _buf);
+        psram_replace(localPsramBuf, maxSize, "%PLATFORM_ADSB_CHK%",   settings.GetPlatform() == FlightPlatform::ADSB_LOL ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%PLATFORM_OPENSKY_CHK%", settings.GetPlatform() == FlightPlatform::OpenSky ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%OS_CLIENT_ID%", settings.GetOpenSkyClientId());
+        psram_replace(localPsramBuf, maxSize, "%OS_CLIENT_SECRET%", settings.GetOpenSkyClientSecret());
         psram_replace(localPsramBuf, maxSize, "%ALT_FT_CHK%",  settings.GetAltitudeInMeters() ? "" : "checked");
         psram_replace(localPsramBuf, maxSize, "%ALT_M_CHK%",   settings.GetAltitudeInMeters() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%SPD_KTS_CHK%", settings.GetSpeedInKmh() ? "" : "checked");
@@ -256,6 +309,7 @@ void ConfigurationWebServer::Initialise() {
         psram_replace(localPsramBuf, maxSize, "%MEMINFO%",    settings.GetDisplayMemoryInfo() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%RSSIINFO%",   settings.GetDisplayRSSI() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%RANGEINFO%",  settings.GetDisplayRange() ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%PLATFORMINFO%",  settings.GetDisplayPlatform() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%UPDATEINFO%", settings.GetDisplayAircraftsUpdateIndicator() ? "checked" : "");
 
         // Sprawdzamy finalną długość i wysyłamy asynchronicznie (chunked)
@@ -284,20 +338,33 @@ void ConfigurationWebServer::Initialise() {
 
         if (request->hasParam("latitude", true)) { settings.SetLatitude(request->getParam("latitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
         if (request->hasParam("longitude", true)) { settings.SetLongitude(request->getParam("longitude", true)->value().toDouble()); aircraftmanager.ForceUpdate(); }
-        if (request->hasParam("radius", true)) { settings.SetRange(request->getParam("radius", true)->value().toInt()); aircraftmanager.ForceUpdate(); }
+        if (request->hasParam("range", true)) { settings.SetRange(request->getParam("range", true)->value().toInt()); aircraftmanager.ForceUpdate(); }
+
+        if (request->hasParam("platform", true)) {
+            settings.SetPlatform(static_cast<FlightPlatform>(request->getParam("platform", true)->value().toInt()));
+            aircraftmanager.ForceUpdate();
+        }
+        if (request->hasParam("os_client_id", true)) { 
+            settings.SetOpenSkyClientId(request->getParam("os_client_id", true)->value().c_str()); 
+        }
+        if (request->hasParam("os_client_secret", true)) { 
+            settings.SetOpenSkyClientSecret(request->getParam("os_client_secret", true)->value().c_str()); 
+        }
+        
         if (request->hasParam("alt_unit", true)) { settings.SetAltitudeInMeters(request->getParam("alt_unit", true)->value() == "m"); }
         if (request->hasParam("spd_unit", true)) { settings.SetSpeedInKmh(request->getParam("spd_unit", true)->value() == "kmh"); }
         settings.SetInfoTextVisible(request->hasParam("infotext", true));
         settings.SetDisplayMemoryInfo(request->hasParam("meminfo", true));
         settings.SetDisplayRSSI(request->hasParam("rssiinfo", true));
         settings.SetDisplayRange(request->hasParam("rangeinfo", true));
+        settings.SetDisplayPlatform(request->hasParam("platforminfo", true));
         settings.SetDisplayAircraftsUpdateIndicator(request->hasParam("updateinfo", true));
 
         request->send(200, "text/html", "");
     });
 
     ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-        if (type == WS_EVT_CONNECT) {// Klient się połączył – wysyłamy aktualny radius
+        if (type == WS_EVT_CONNECT) {// Klient się połączył – wysyłamy aktualny range
             client->text(String(settings.GetRange()));
         }
     });

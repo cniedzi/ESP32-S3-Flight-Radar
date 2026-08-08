@@ -45,6 +45,15 @@ const String OpenSkyAuthTokenHandler::GetValidToken(const String& clientId, cons
     if (clientId.isEmpty() || clientSecret.isEmpty())
         return "";
 
+    // Jeśli zmieniło się cokolwiek w poświadczeniach, unieważniamy token
+    static String lastClientId = "";
+    static String lastClientSecret = "";
+    if (clientId != lastClientId || clientSecret != lastClientSecret) {
+        bearerToken = ""; 
+        lastClientId = clientId;
+        lastClientSecret = clientSecret;
+    }
+
     if (bearerToken.isEmpty() || millis() > tokenExpiry) {
         bearerToken = FetchBearerToken(url, clientId, clientSecret);
         tokenExpiry = millis() + (29 * 60 * 1000);  // 29 mins, 1 min buffer

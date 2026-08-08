@@ -13,11 +13,18 @@
 void AircraftManager::Initialise() {}
 
 
-// przy przełączeniu platformy trzeba wyczyścić wektor headers QQQ
 void AircraftManager::Update()
 {
     unsigned long now = millis();
     FlightPlatform platform = settings.GetPlatform();
+
+    static FlightPlatform lastPlatform = platform;
+    if (platform != lastPlatform) {
+        std::lock_guard<std::mutex> lock(_dataMutex);
+        trackedAircraft.clear();
+        lastPlatform = platform;
+    }
+
     unsigned long fetchInterval = FETCH_INTERVAL_ADSB;
 
     String token = "";
@@ -31,7 +38,9 @@ void AircraftManager::Update()
         token = authHandler.GetValidToken(settings.GetOpenSkyClientId(), settings.GetOpenSkyClientSecret());
         if (!token.isEmpty()) {
             dailyRequestBudget = AUTHED_TOKENS_PER_DAY - TOKEN_BUFFER;
+            isOpenSkyAuthenticated = true;
         }
+        else isOpenSkyAuthenticated = false;
         fetchInterval = MS_PER_DAY / dailyRequestBudget; // Wyliczony budżet tylko dla OpenSky
     }
 
