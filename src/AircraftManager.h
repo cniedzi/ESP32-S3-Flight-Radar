@@ -16,18 +16,9 @@ class AircraftManager
 {
 private:
     std::mutex _dataMutex;
-    std::atomic<bool> isFetching{false};
     std::map<std::string, TrackedAircraft> trackedAircraft;
-
     std::function<void(int)> radiusChangedCallback;
 
-    bool displayInfoText = true;
-    bool displayRange = true;
-    bool displayAircraftsUpdateIndicator = true;
-    bool displayMemoryInfo = true;
-    bool displayRSSI = true;
-
-    unsigned long fetchInterval = 0;
     unsigned long lastFetch = 999999;
 
     SettingsManager& settings;
@@ -38,7 +29,7 @@ private:
     void DrawRadarCircles(LGFX_Sprite& radarSprite) const;
     void DrawAircraftInfo(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const;
     void DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const TrackedAircraft& tracked) const;
-    char* separatorTysiecy_c(char* bufNum, uint32_t n);
+    
     
 
 public:
@@ -47,6 +38,8 @@ public:
     {
     }
     ~AircraftManager() = default;
+
+    std::atomic<bool> isFetching{false};
 
     void Initialise();
     void Update();

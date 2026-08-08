@@ -149,31 +149,6 @@ void AircraftManager::Draw(LGFX_Sprite& radarSprite)
 
         DrawAircraft(radarSprite, x, y, tracked);
     }
-    int currentY = 0;
-    const uint8_t lineHeight = radarSprite.fontHeight() + 3;
-    if (settings.GetDisplayMemoryInfo()) {
-        char buf[15];
-        radarSprite.setTextDatum(top_left);
-        radarSprite.setCursor(0, currentY); radarSprite.setTextColor(TFT_ORANGE); radarSprite.printf("Free heap: %sB", separatorTysiecy_c(buf, ESP.getFreeHeap())); currentY += lineHeight;
-        radarSprite.setCursor(0, currentY); radarSprite.setTextColor(TFT_ORANGE); radarSprite.printf("Free PSRAM: %sB", separatorTysiecy_c(buf, ESP.getFreePsram())); currentY += lineHeight;
-        
-    }
-    if (settings.GetDisplayRSSI()) {
-        radarSprite.setTextDatum(top_left);
-        radarSprite.setCursor(0, currentY);
-        radarSprite.setTextColor(TFT_ORANGE);radarSprite.printf("RSSI: %ddBm", WiFi.RSSI());
-    }
-    if (settings.GetDisplayRange()) {
-        radarSprite.setTextDatum(top_center);
-        radarSprite.setTextColor(TFT_WHITE, TFT_MAGENTA);
-        char rangeText[15];
-        snprintf(rangeText, sizeof(rangeText), " Range %dnm ", settings.GetRange());
-        radarSprite.drawString(rangeText, radarSprite.width() / 2, 0);
-        radarSprite.setTextDatum(top_left);
-    }
-    if (settings.GetDisplayAircraftsUpdateIndicator()) {
-        if (isFetching.load()) radarSprite.fillCircle(DISPLAY_WIDTH - 6, 6, 5, tft.color565(6, 85, 150));
-    }
 }
 
 
@@ -346,34 +321,6 @@ void AircraftManager::DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const
 void AircraftManager::ForceUpdate() {
     std::lock_guard<std::mutex> lock(_dataMutex);
     lastFetch = 0; // Zerujemy timer, dzięki czemu następne wywołanie Update() wykona się natychmiast
-}
-
-
-
-char* AircraftManager::separatorTysiecy_c(char* bufNum, uint32_t n) {
-  int i = 15;
-  bufNum[i--] = '\0';
-    
-  if (n == 0) {
-    bufNum[0] = '0';
-    bufNum[1] = '\0';
-    return bufNum;
-  }
-
-  uint8_t count = 0;
-  while (n > 0) {
-    if (count == 3) {
-      bufNum[i--] = ' ';
-        count = 0;
-    }
-    bufNum[i--] = (n % 10) + '0';
-    n /= 10;
-    count++;
-  }
-  int startIdx = i + 1;
-  int dlugosc = 15 - startIdx;
-  memmove(bufNum, &bufNum[startIdx], dlugosc + 1);
-  return bufNum;
 }
 
 

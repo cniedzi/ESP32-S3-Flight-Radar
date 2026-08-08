@@ -27,6 +27,7 @@
 #define CONFIG_PORTAL_TIMEOUT 180 //s
 
 
+void displayUIElements(LGFX_Sprite& radarSprite);
 void drawHome(LGFX_Sprite& radarSprite);
 void drawAirports(LGFX_Sprite& radarSprite);
 void drawPolandMap(LGFX_Sprite& radarSprite, uint16_t color = TFT_DARKGREY);
@@ -37,6 +38,7 @@ void aircraftsUpdateTask(void *pvParameters);
 void configureTouchSensor();
 void touchTask(void *pvParameters);
 bool isTouchedOnStartup();
+char* separatorTysiecy_c(char* bufNum, uint32_t n);
 
 
 unsigned long g_lastZoomChange = 0;
@@ -157,9 +159,64 @@ void loop()
   drawAirports(radarSprite);
   drawHome(radarSprite);
   aircraftManager.Draw(radarSprite);
+  displayUIElements(radarSprite);
   
   radarSprite.pushSprite(0, 0);
   delay(10);
+
+}
+
+
+
+void displayUIElements(LGFX_Sprite& radarSprite) {
+    
+    // Aircraft data platform
+    int x = 360;
+    int y = 0;
+    char text[9];
+    if (settingsManager.GetPlatform() == FlightPlatform::ADSB_LOL) strlcpy(text, "ADSB.lol", sizeof(text));
+    else strlcpy(text, "OpenSky", sizeof(text));
+    radarSprite.setTextColor(TFT_WHITE);
+    int length = radarSprite.textWidth(text) + 11;
+    radarSprite.fillRoundRect(x - length / 2, y, length, radarSprite.fontHeight() + 3, 4, 0xa2e3);
+    radarSprite.setTextDatum(middle_center);
+    radarSprite.drawString(text, x + 1, y + radarSprite.fontHeight() / 2 + 2);
+
+    // Memory parameters
+    int currentY = 0;
+    if (settingsManager.GetDisplayMemoryInfo()) {
+        char buf[15];
+        const uint8_t lineHeight = radarSprite.fontHeight() + 3;
+        radarSprite.setTextDatum(top_left);
+        radarSprite.setCursor(0, currentY); radarSprite.setTextColor(TFT_ORANGE); radarSprite.printf("Free heap: %sB", separatorTysiecy_c(buf, ESP.getFreeHeap())); currentY += lineHeight;
+        radarSprite.setCursor(0, currentY); radarSprite.setTextColor(TFT_ORANGE); radarSprite.printf("Free PSRAM: %sB", separatorTysiecy_c(buf, ESP.getFreePsram())); currentY += lineHeight;
+        
+    }
+
+    // WiFi RSSI
+    if (settingsManager.GetDisplayRSSI()) {
+        radarSprite.setTextDatum(top_left);
+        radarSprite.setCursor(0, currentY);
+        radarSprite.setTextColor(TFT_ORANGE);radarSprite.printf("RSSI: %ddBm", WiFi.RSSI());
+    }
+
+    // Range
+    if (settingsManager.GetDisplayRange()) {
+        int x = 240;
+        int y = 0;
+        char rangeText[15];
+        snprintf(rangeText, sizeof(rangeText), "Range %dnm", settingsManager.GetRange());
+        radarSprite.setTextColor(TFT_WHITE);
+        int length = radarSprite.textWidth(rangeText) + 11;
+        radarSprite.fillRoundRect(x - length / 2, y, length, radarSprite.fontHeight() + 3, 4, TFT_MAGENTA);
+        radarSprite.setTextDatum(middle_center);
+        radarSprite.drawString(rangeText, x + 1, y + radarSprite.fontHeight() / 2 + 2);
+    }
+
+    // Update indicator
+    if (settingsManager.GetDisplayAircraftsUpdateIndicator()) {
+        if (aircraftManager.isFetching.load()) radarSprite.fillCircle(DISPLAY_WIDTH - 6, 6, 5, tft.color565(6, 85, 150));
+    }
 
 }
 
@@ -323,3 +380,32 @@ bool isTouchedOnStartup() {
     if (touchInValue >= TOUCH_THRESHOLD || touchOutValue >= TOUCH_THRESHOLD) result = true;
     return result;
 }
+
+
+
+char* separatorTysiecy_c(char* bufNum, uint32_t n) {
+  int i = 15;
+  bufNum[i--] = '\0';
+    
+  if (n == 0) {
+    bufNum[0] = '0';
+    bufNum[1] = '\0';
+    return bufNum;
+  }
+
+  uint8_t count = 0;
+  while (n > 0) {
+    if (count == 3) {
+      bufNum[i--] = ' ';
+        count = 0;
+    }
+    bufNum[i--] = (n % 10) + '0';
+    n /= 10;
+    count++;
+  }
+  int startIdx = i + 1;
+  int dlugosc = 15 - startIdx;
+  memmove(bufNum, &bufNum[startIdx], dlugosc + 1);
+  return bufNum;
+}
+
