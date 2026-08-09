@@ -43,8 +43,8 @@ namespace JsonParser {
         strlcpy(a.icao24, state[0] | "", sizeof(a.icao24));
         strlcpy(a.callsign, state[1] | "", sizeof(a.callsign));
         a.type[0] = {'\0'};
-        a.seen_pos = 0;
-        a.seen = 0;
+        a.seen_pos = state[3].isNull() ? 0 : state[3].as<long>();
+        a.seen = state[4].isNull() ? 0 : state[4].as<long>();
         a.longitude = state[5].isNull() ? 0.0f : state[5].as<float>();
         a.latitude = state[6].isNull() ? 0.0f : state[6].as<float>();
         

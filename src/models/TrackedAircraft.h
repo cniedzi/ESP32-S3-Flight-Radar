@@ -59,13 +59,18 @@ struct TrackedAircraft {
     }
 
     std::pair<float, float> PredictPosition() const {
-        float dataAgeOnArrival = state.seen_pos > 0 ? (float)state.seen_pos : 0.0f;
+        float dataAgeOnArrival = 0.0f;
+        if (state.seen_pos > 0 && state.seen > 0)
+            dataAgeOnArrival = (float)(state.seen - state.seen_pos);
+
         float localElapsed = (millis() - lastSeen) / 1000.0f;
         float dt = localElapsed + dataAgeOnArrival;
+
         float headingRad = radians(state.trueTrack);
         const float latMetersPerDeg = 111320.0f;
         float deltaLat = (state.velocity * dt * cos(headingRad)) / latMetersPerDeg;
         float deltaLon = (state.velocity * dt * sin(headingRad)) / (latMetersPerDeg * cos(radians(state.latitude)));
+
         return { state.latitude + deltaLat, state.longitude + deltaLon };
     }
 };

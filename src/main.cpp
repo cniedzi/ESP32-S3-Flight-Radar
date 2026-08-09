@@ -203,7 +203,7 @@ void displayUIElements(LGFX_Sprite& radarSprite) {
     // Memory parameters
     int currentY = 0;
     if (settingsManager.GetDisplayMemoryInfo()) {
-        char buf[15];
+        char buf[32];
         const uint8_t lineHeight = radarSprite.fontHeight() + 3;
         radarSprite.setTextDatum(top_left);
         radarSprite.setCursor(0, currentY); radarSprite.setTextColor(TFT_ORANGE); radarSprite.printf("Free heap: %sB", separatorTysiecy_c(buf, ESP.getFreeHeap())); currentY += lineHeight;

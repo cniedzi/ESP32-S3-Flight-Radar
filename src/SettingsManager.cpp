@@ -134,7 +134,6 @@ bool SettingsManager::GetDisplayPlatform() const {
 
 void SettingsManager::SetDisplayPlatform(bool visible) {
     _displayPlatform = visible;
-    Serial.println(_displayPlatform);
     preferences.putBool("platforminfo", visible);
 }
 

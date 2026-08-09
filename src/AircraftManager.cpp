@@ -77,7 +77,7 @@ void AircraftManager::Update()
 
         if (!result.success) {
             Serial.print("[WARN] API/JSON Error: ");
-            Serial.print(result.errorMessage); Serial.print("--->>>"); Serial.println(result.statusCode);
+            Serial.print(result.errorMessage); Serial.print("--->>>");
             isFetching = false;
             if (platform == FlightPlatform::OpenSky && result.statusCode == 429) OpenSkyQuotaExceeded = true;
             return;
@@ -113,6 +113,14 @@ void AircraftManager::Update()
                 Aircraft ac;
                 if (platform == FlightPlatform::ADSB_LOL) ac = JsonParser::ParseADSB(item);
                 else ac = JsonParser::ParseOpenSky(item);
+
+                constexpr unsigned long MAX_POSITION_AGE = 60; // maksymalny wiek pozycji w sekundach
+                bool isPositionStale = (abs(ac.seen - ac.seen_pos) > MAX_POSITION_AGE);
+
+                if (isPositionStale) {
+                    trackedAircraft.erase(ac.icao24); // Usuwamy z bazy
+                    continue; // Pomijamy ten samolot
+                }
 
                 // Jawnie konwertujemy String na std::string przed wrzuceniem do setu
                 fetchedIcaos.insert(ac.icao24);
@@ -334,7 +342,7 @@ void AircraftManager::DrawAircraft(LGFX_Sprite& radarSprite, int x, int y, const
 
 void AircraftManager::ForceUpdate() {
     std::lock_guard<std::mutex> lock(_dataMutex);
-    lastFetch = 0; // Zerujemy timer, dzięki czemu następne wywołanie Update() wykona się natychmiast
+    lastFetch = 999999; // Zerujemy timer, dzięki czemu następne wywołanie Update() wykona się natychmiast
 }
 
 
