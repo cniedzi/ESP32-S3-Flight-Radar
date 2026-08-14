@@ -25,7 +25,7 @@ void AircraftManager::Update()
         lastPlatform = platform;
     }
 
-    unsigned long fetchInterval = FETCH_INTERVAL_ADSB;
+    fetchInterval = FETCH_INTERVAL_ADSB;
 
     String token = "";
     if (platform == FlightPlatform::OpenSky) {
@@ -353,4 +353,15 @@ void AircraftManager::setRange(int newRad) {
   else settings.SetRange(10);
   
   if (radiusChangedCallback) radiusChangedCallback(settings.GetRange());
+}
+
+
+
+int AircraftManager::getSecondsUntilNextUpdate() const {
+        unsigned long now = millis();
+        if (now - lastFetch >= fetchInterval) {
+            return 0;
+        }
+        int remainingMs = static_cast<int>(fetchInterval - (now - lastFetch));
+        return remainingMs / 1000 + 1; // Przeliczenie milisekund na sekundy
 }

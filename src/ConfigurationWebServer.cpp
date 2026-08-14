@@ -149,6 +149,11 @@ static const char CONFIG_HTML[] = R"rawliteral(
                         <input name="updateinfo" type="checkbox" %UPDATEINFO% class="w-4 h-4 accent-green-500">
                         <span>Show aircrafts update indicator</span>
                     </label>
+
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input name="updatetimeremaining" type="checkbox" %UPDATETIME% class="w-4 h-4 accent-green-500">
+                        <span>Show aircrafts update time remaining</span>
+                    </label>
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-4 sm:gap-5 pt-2">
@@ -311,6 +316,7 @@ void ConfigurationWebServer::Initialise() {
         psram_replace(localPsramBuf, maxSize, "%RANGEINFO%",  settings.GetDisplayRange() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%PLATFORMINFO%",  settings.GetDisplayPlatform() ? "checked" : "");
         psram_replace(localPsramBuf, maxSize, "%UPDATEINFO%", settings.GetDisplayAircraftsUpdateIndicator() ? "checked" : "");
+        psram_replace(localPsramBuf, maxSize, "%UPDATETIME%", settings.GetDisplayAircraftsUpdateTimeRemaining() ? "checked" : "");
 
         // Sprawdzamy finalną długość i wysyłamy asynchronicznie (chunked)
         size_t finalLen = strlen(localPsramBuf);
@@ -359,6 +365,7 @@ void ConfigurationWebServer::Initialise() {
         settings.SetDisplayRange(request->hasParam("rangeinfo", true));
         settings.SetDisplayPlatform(request->hasParam("platforminfo", true));
         settings.SetDisplayAircraftsUpdateIndicator(request->hasParam("updateinfo", true));
+        settings.SetDisplayAircraftsUpdateTimeRemaining(request->hasParam("updatetimeremaining", true));
 
         request->send(200, "text/html", "");
     });

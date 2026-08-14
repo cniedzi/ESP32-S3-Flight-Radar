@@ -160,7 +160,6 @@ void loop()
   drawHome(radarSprite);
   aircraftManager.Draw(radarSprite);
   displayUIElements(radarSprite);
-  
   radarSprite.pushSprite(0, 0);
   delay(10);
 
@@ -231,9 +230,23 @@ void displayUIElements(LGFX_Sprite& radarSprite) {
         radarSprite.drawString(rangeText, x + 1, y + radarSprite.fontHeight() / 2 + 2);
     }
 
+    // Update remaining time
+    if (settingsManager.GetDisplayAircraftsUpdateTimeRemaining() && settingsManager.GetDisplayAircraftsUpdateIndicator()) {
+        int x = DISPLAY_WIDTH;
+        int y = 0;
+        char buf[15];
+        int updateTimeRemaining = aircraftManager.getSecondsUntilNextUpdate();
+        if (!aircraftManager.isFetching.load() && updateTimeRemaining > 0) {
+            snprintf(buf, sizeof(buf), "%ds", updateTimeRemaining);
+            radarSprite.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            radarSprite.setTextDatum(middle_right);
+            radarSprite.drawString(buf, x + 1, y + radarSprite.fontHeight() / 2 + 2);
+        }
+    }
+
     // Update indicator
     if (settingsManager.GetDisplayAircraftsUpdateIndicator()) {
-        if (aircraftManager.isFetching.load()) radarSprite.fillCircle(DISPLAY_WIDTH - 6, 6, 5, tft.color565(6, 85, 150));
+        if (aircraftManager.isFetching.load()) radarSprite.fillCircle(DISPLAY_WIDTH - 7, radarSprite.fontHeight() / 2 + 2, 5, tft.color565(6, 85, 150));
     }
 
 }
@@ -256,9 +269,13 @@ void drawAirports(LGFX_Sprite& radarSprite) {
         
         radarSprite.drawCircle(x, y, 3, AIRPORT_COLOR);
         radarSprite.setTextColor(TFT_WHITE, AIRPORT_COLOR);
-        char label[9];
-        snprintf(label, sizeof(label), " %s ", airport.icao);
-        radarSprite.drawString(label, x + 10, y - 10);
+        uint8_t text_dx = 5;
+        uint8_t text_dy = 15;
+        int length = radarSprite.textWidth(airport.icao) + 5;
+        radarSprite.fillRoundRect(x + text_dx, y - text_dy, length, radarSprite.fontHeight() + 3, 2, AIRPORT_COLOR);
+        radarSprite.setTextDatum(middle_center);
+        radarSprite.drawString(airport.icao, x + text_dx + length / 2 + 1, y - text_dy + radarSprite.fontHeight() / 2 + 2);
+
     }
 }
 

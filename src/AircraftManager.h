@@ -20,6 +20,7 @@ private:
     std::function<void(int)> radiusChangedCallback;
 
     unsigned long lastFetch = 999999;
+    unsigned long fetchInterval = 999999;
 
     SettingsManager& settings;
     OpenSkyAuthTokenHandler& authHandler;
@@ -51,5 +52,6 @@ public:
     std::pair<int, int> ProjectCoordinateToScreen(float predLat, float predLon) const;
     void setOnRadiusChanged(std::function<void(int)> cb) { radiusChangedCallback = cb; }
     void setRange(int newRad);
+    int getSecondsUntilNextUpdate() const;
     
 };

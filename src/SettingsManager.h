@@ -23,6 +23,7 @@ private:
     bool _displayRange;
     bool _displayPlatform;
     bool _displayAircraftsUpdateIndicator;
+    bool _displayAircraftsUpdateTimeRemaining;
     char _openSkyClientId[64];
     char _openSkyClientSecret[64];
 
@@ -73,6 +74,9 @@ public:
 
     bool GetDisplayAircraftsUpdateIndicator() const;
     void SetDisplayAircraftsUpdateIndicator(bool visible);
+
+    bool GetDisplayAircraftsUpdateTimeRemaining() const;
+    void SetDisplayAircraftsUpdateTimeRemaining(bool visible);
 
     // Gettery i settery dla OpenSky
     const char* GetOpenSkyClientId() const;

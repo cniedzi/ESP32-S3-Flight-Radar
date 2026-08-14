@@ -18,6 +18,7 @@ void SettingsManager::Initialise() {
     _displayRange = preferences.getBool("rangeinfo", true);
     _displayPlatform = preferences.getBool("platforminfo", true);
     _displayAircraftsUpdateIndicator = preferences.getBool("updateinfo", true);
+    _displayAircraftsUpdateTimeRemaining = preferences.getBool("updatetime", true);
 
     // OPEN SKY
     size_t lenCid = preferences.getString("os_cid", _openSkyClientId, sizeof(_openSkyClientId));
@@ -144,6 +145,15 @@ bool SettingsManager::GetDisplayAircraftsUpdateIndicator() const {
 void SettingsManager::SetDisplayAircraftsUpdateIndicator(bool visible) {
     _displayAircraftsUpdateIndicator = visible;
     preferences.putBool("updateinfo", visible);
+}
+
+bool SettingsManager::GetDisplayAircraftsUpdateTimeRemaining() const {
+    return _displayAircraftsUpdateTimeRemaining;
+}
+
+void SettingsManager::SetDisplayAircraftsUpdateTimeRemaining(bool visible) {
+    _displayAircraftsUpdateTimeRemaining = visible;
+    preferences.putBool("updatetime", visible);
 }
 
 // ---------------------------------------------------------
