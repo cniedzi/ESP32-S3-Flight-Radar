@@ -234,6 +234,21 @@ static const char CONFIG_HTML[] = R"rawliteral(
             // Wywołanie przy starcie, by odpowiednio pokazać/ukryć pola podczas ładowania strony
             toggleOpenSkyFields();
 
+            const updateInfoCheckbox = document.querySelector('input[name="updateinfo"]');
+            const updateTimeCheckbox = document.querySelector('input[name="updatetimeremaining"]');
+
+            updateInfoCheckbox.addEventListener('change', function() {
+                if (!this.checked) {
+                    updateTimeCheckbox.checked = false;
+                }
+            });
+
+            updateTimeCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    updateInfoCheckbox.checked = true;
+                }
+            });
+
         </script>
     </body>
 </html>
